@@ -1,9 +1,9 @@
 # KSA
-AviUtlの拡張編集のためのスクリプトです．
+AviUtlの拡張編集のためのスクリプト集です．
 
 ## インストール
-拡張編集の script フォルダに @ksa.anm, @ksa.obj, ksa.lua をコピーします．
-本リポジトリを直接 script フォルダのサブフォルダにクローンできるようにするため，リポジトリルートに直接スクリプトを置いています．
+拡張編集の script フォルダに scripts 以下のファイルをコピーします．
+または，script フォルダに，scripts へのシンボリックリンクを作成します．
 
 ## Requirements
 AviUtl version 1.00, 拡張編集Plugin version 0.92 でのみ動作確認しています．
