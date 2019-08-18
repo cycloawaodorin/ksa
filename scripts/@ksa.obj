@@ -247,15 +247,15 @@ obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
 @枠付き角丸四角形
 --track0:角半径,0,1000,0,1
 --track1:枠太さ,0,1000,0,1
---track2:内透明度,0,100,0
---track3:アンカー数,1,2,2,1
---dialog:内色/col,local col=0x003300;枠色/col,local fcol=0x66cc00;枠透明度,local ft=0;座標,a_pos={-100,-100,100,100};
+--track2:枠透明度,0,100,0
+--track3:内透明度,0,100,0
+--dialog:内色/col,local col=0x003300;枠色/col,local fcol=0x66cc00;シングルアンカー/chk,local single=0;座標,a_pos={-100,-100,100,100};
 
 local ksa = require("ksa")
 
-local r, fw, alp, falp = obj.track0, obj.track1, 1-obj.track2/100, 1-ft/100
+local r, fw, alp, falp = obj.track0, obj.track1, 1-obj.track3/100, 1-obj.track2/100
 local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
-if ( obj.track3 == 2 ) then
+if ( single == 0 ) then
 	obj.setanchor("a_pos", 2, "line")
 else
 	obj.setanchor("a_pos", 1, "arm")
