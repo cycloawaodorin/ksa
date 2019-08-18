@@ -34,7 +34,8 @@ x0, y0 = a_pos[1], a_pos[2]
 for i=1,na-1 do
 	len = len + lens[i]
 	n = n+1
-	x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
+	local int i2 = i*2
+	x1, y1 = a_pos[i2+1], a_pos[i2+2]
 	if ( draw_length <= len ) then -- ÅŒã‚Ì•`‰æƒZƒOƒƒ“ƒg‚É“ž’B
 		local fseg_len = draw_length + lens[i] - len
 		local dx, dy = x1-x0, y1-y0
@@ -42,8 +43,8 @@ for i=1,na-1 do
 		head[1] = x0 + dx * r
 		head[2] = y0 + dy * r
 		if ( fseg_len < head_len ) then -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·–¢–ž
-			pos[i*2+1] = x0
-			pos[i*2+2] = y0
+			pos[i2+1] = x0
+			pos[i2+2] = y0
 			local d_len = math.sqrt(dx*dx+dy*dy)
 			local r = fseg_len/head_len
 			if ( head_wid * r < lw ) then
@@ -58,17 +59,19 @@ for i=1,na-1 do
 			head[5] = x0 - hdx
 			head[6] = y0 - hdy
 			local remain_len = head_len - fseg_len
-			local xx0, yy0 = a_pos[i*2-3], a_pos[i*2-2]
+			local xx0, yy0 = a_pos[i2-3], a_pos[i2-2]
 			for j=i-1,1,-1 do -- Žè‘O‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚éèV’¸“_‚ÌŒvŽZ
+				local j2 = j*2
 				if ( remain_len <= 0 ) then
 					break
 				else
 					nh = nh + 1
-					local xx1, yy1 = a_pos[j*2+1], a_pos[j*2+2]
+					local nh6 = nh*6
+					local xx1, yy1 = a_pos[j2+1], a_pos[j2+2]
 					local dx = xx1-xx0
 					local dy = yy1-yy0
-					head[nh*6-5] = xx1
-					head[nh*6-4] = yy1
+					head[nh6-5] = xx1
+					head[nh6-4] = yy1
 					local d_len = math.sqrt(dx*dx+dy*dy)
 					local draw_head_len
 					if ( remain_len < lens[j] ) then
@@ -87,18 +90,18 @@ for i=1,na-1 do
 					end
 					local hdx = dy * r
 					local hdy = -dx * r
-					head[nh*6-3] = head_tail_x + hdx
-					head[nh*6-2] = head_tail_y + hdy
-					head[nh*6-1] = head_tail_x - hdx
-					head[nh*6] = head_tail_y - hdy
+					head[nh6-3] = head_tail_x + hdx
+					head[nh6-2] = head_tail_y + hdy
+					head[nh6-1] = head_tail_x - hdx
+					head[nh6] = head_tail_y - hdy
 					remain_len = remain_len - lens[j]
 					xx0, yy0 = xx1, yy1
 				end
 			end
 		else -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·ˆÈã
 			local r = ( fseg_len - head_len*(1+head_wid/(lw+head_wid))/2 )/lens[i]
-			pos[i*2+1] = x0 + dx * r
-			pos[i*2+2] = y0 + dy * r
+			pos[i2+1] = x0 + dx * r
+			pos[i2+2] = y0 + dy * r
 			local d_len = math.sqrt(dx*dx+dy*dy)
 			local r = head_wid/d_len
 			local hdx = dy * r
@@ -113,8 +116,8 @@ for i=1,na-1 do
 		end
 		break
 	else
-		pos[i*2+1] = x1
-		pos[i*2+2] = y1
+		pos[i2+1] = x1
+		pos[i2+2] = y1
 		x0, y0 = x1, y1
 	end
 end
@@ -122,8 +125,8 @@ end
 -- ‰¼‘zƒoƒbƒtƒ@
 local x0, x1 = pos[1]-lw, pos[1]+lw
 local y0, y1 = pos[2]-lw, pos[2]+lw
-for i=1,n-1 do
-	local x2, y2 = pos[i*2+1], pos[i*2+2]
+for i2=2,(n-1)*2,2 do
+	local x2, y2 = pos[i2+1], pos[i2+2]
 	if ( x2-lw < x0 ) then
 		x0 = x2-lw
 	elseif ( x1 < x2+lw ) then
@@ -135,9 +138,9 @@ for i=1,n-1 do
 		y1 = y2+lw
 	end
 end
-for j=0,nh-1 do
-	for i=0,2 do
-		local x2, y2 = head[j*6+i*2+1], head[j*6+i*2+2]
+for j6=0,(nh-1)*6,6 do
+	for i2=0,4,2 do
+		local x2, y2 = head[j6+i2+1], head[j6+i2+2]
 		if ( x2 < x0 ) then
 			x0 = x2
 		elseif ( x1 < x2 ) then
@@ -152,12 +155,12 @@ for j=0,nh-1 do
 end
 local ox, oy = (x0+x1)/2, (y0+y1)/2
 
-for i=0,n-1 do
-	pos[i*2+1], pos[i*2+2] = pos[i*2+1]-ox, pos[i*2+2]-oy
+for i2=0,(n-1)*2,2 do
+	pos[i2+1], pos[i2+2] = pos[i2+1]-ox, pos[i2+2]-oy
 end
-for j=0,nh-1 do
-	for i=0,2 do
-		head[j*6+i*2+1], head[j*6+i*2+2] = head[j*6+i*2+1]-ox, head[j*6+i*2+2]-oy
+for j6=0,(nh-1)*6,6 do
+	for i2=0,4,2 do
+		head[j6+i2+1], head[j6+i2+2] = head[j6+i2+1]-ox, head[j6+i2+2]-oy
 	end
 end
 obj.setoption("drawtarget", "tempbuffer", math.ceil(x1-x0+2),math.ceil(y1-y0+2))
@@ -166,8 +169,8 @@ obj.load("figure", "ŽlŠpŒ`", col, 1)
 
 -- ü•`‰æ
 local x0, y0 = pos[1], pos[2]
-for i=1,n-1 do
-	local x1, y1 = pos[i*2+1], pos[i*2+2]
+for i2=2,(n-1)*2,2 do
+	local x1, y1 = pos[i2+1], pos[i2+2]
 	local dxr, dyr = x1-x0, y1-y0
 	local d_len = math.sqrt(dxr*dxr+dyr*dyr)
 	local dx = dyr*lw/d_len
@@ -183,8 +186,8 @@ end
 
 -- Ü‚ê“_•`‰æ
 obj.load("figure", "‰~", col, lw*8)
-for i=1,n-2 do
-	local x0, y0 = pos[i*2+1], pos[i*2+2]
+for i2=2,(n-2)*2,2 do
+	local x0, y0 = pos[i2+1], pos[i2+2]
 	ksa.drawrect(obj, x0-lw, y0-lw, x0+lw, y0+lw)
 end
 
