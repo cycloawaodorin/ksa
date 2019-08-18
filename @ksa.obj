@@ -1,0 +1,321 @@
+@折れ線矢印
+--track0:線幅,1,1000,20,1
+--track1:鏃長,0,3000,600
+--track2:鏃幅,100,1000,300
+--track3:描画率,0,100,100,0.01
+--dialog:色/col,local col=0x66cc00;頂点数,local na=2;座標,a_pos={-100,0,100,0};
+
+local ksa = require("ksa")
+
+local lw = obj.track0/2
+local head_len = lw*obj.track1/100
+local head_wid = lw*obj.track2/100
+obj.setanchor("a_pos",na,"line")
+local draw_ratio = obj.track3/100
+
+-- 描画用頂点計算
+local whole_length = 0
+local lens = {}
+local x0, y0 = a_pos[1], a_pos[2]
+for i=1,na-1 do
+	local x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
+	local dx, dy = x1-x0, y1-y0
+	lens[i] = math.sqrt(dx*dx+dy*dy)
+	whole_length = whole_length + lens[i]
+	x0, y0 = x1, y1
+end
+local draw_length = whole_length * draw_ratio
+local len = 0
+local n = 1
+local pos = {a_pos[1], a_pos[2]}
+local head = {}
+local nh = 1
+x0, y0 = a_pos[1], a_pos[2]
+for i=1,na-1 do
+	len = len + lens[i]
+	n = n+1
+	x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
+	if ( draw_length <= len ) then -- 最後の描画セグメントに到達
+		local fseg_len = draw_length + lens[i] - len
+		local dx, dy = x1-x0, y1-y0
+		local r = fseg_len/lens[i]
+		head[1] = x0 + dx * r
+		head[2] = y0 + dy * r
+		if ( fseg_len < head_len ) then -- 最後のセグメントにおける描画長さが鏃長未満
+			pos[i*2+1] = x0
+			pos[i*2+2] = y0
+			local d_len = math.sqrt(dx*dx+dy*dy)
+			local r = fseg_len/head_len
+			if ( head_wid * r < lw ) then
+				r = lw/d_len
+			else
+				r = head_wid*r/d_len
+			end
+			local hdx = dy * r
+			local hdy = -dx * r
+			head[3] = x0 + hdx
+			head[4] = y0 + hdy
+			head[5] = x0 - hdx
+			head[6] = y0 - hdy
+			local remain_len = head_len - fseg_len
+			local xx0, yy0 = a_pos[i*2-3], a_pos[i*2-2]
+			for j=i-1,1,-1 do -- 手前のセグメントにおける鏃頂点の計算
+				if ( remain_len <= 0 ) then
+					break
+				else
+					nh = nh + 1
+					local xx1, yy1 = a_pos[j*2+1], a_pos[j*2+2]
+					local dx = xx1-xx0
+					local dy = yy1-yy0
+					head[nh*6-5] = xx1
+					head[nh*6-4] = yy1
+					local d_len = math.sqrt(dx*dx+dy*dy)
+					local draw_head_len
+					if ( remain_len < lens[j] ) then
+						draw_head_len = remain_len
+					else
+						draw_head_len = lens[j]
+					end
+					local r = 1-draw_head_len/lens[j]
+					local head_tail_x = xx0 + dx * r
+					local head_tail_y = yy0 + dy * r
+					local r = draw_head_len/head_len
+					if ( head_wid * r < lw ) then
+						r = lw/d_len
+					else
+						r = head_wid*r/d_len
+					end
+					local hdx = dy * r
+					local hdy = -dx * r
+					head[nh*6-3] = head_tail_x + hdx
+					head[nh*6-2] = head_tail_y + hdy
+					head[nh*6-1] = head_tail_x - hdx
+					head[nh*6] = head_tail_y - hdy
+					remain_len = remain_len - lens[j]
+					xx0, yy0 = xx1, yy1
+				end
+			end
+		else -- 最後のセグメントにおける描画長さが鏃長以上
+			local r = (fseg_len-head_len)/lens[i]
+			pos[i*2+1] = x0 + dx * r
+			pos[i*2+2] = y0 + dy * r
+			local d_len = math.sqrt(dx*dx+dy*dy)
+			local r = head_wid/d_len
+			local hdx = dy * r
+			local hdy = -dx * r
+			local xx1, yy1 = pos[i*2+1], pos[i*2+2]
+			head[3] = xx1 + hdx
+			head[4] = yy1 + hdy
+			head[5] = xx1 - hdx
+			head[6] = yy1 - hdy
+		end
+		break
+	else
+		pos[i*2+1] = x1
+		pos[i*2+2] = y1
+		x0, y0 = x1, y1
+	end
+end
+
+-- 仮想バッファ
+local x0, x1 = pos[1]-lw, pos[1]+lw
+local y0, y1 = pos[2]-lw, pos[2]+lw
+for i=1,n-1 do
+	local x2, y2 = pos[i*2+1], pos[i*2+2]
+	if ( x2-lw < x0 ) then
+		x0 = x2-lw
+	elseif ( x1 < x2+lw ) then
+		x1 = x2+lw
+	end
+	if ( y2-lw < y0 ) then
+		y0 = y2-lw
+	elseif ( y1 < y2+lw ) then
+		y1 = y2+lw
+	end
+end
+for j=0,nh-1 do
+	for i=0,2 do
+		local x2, y2 = head[j*6+i*2+1], head[j*6+i*2+2]
+		if ( x2 < x0 ) then
+			x0 = x2
+		elseif ( x1 < x2 ) then
+			x1 = x2
+		end
+		if ( y2 < y0 ) then
+			y0 = y2
+		elseif ( y1 < y2 ) then
+			y1 = y2
+		end
+	end
+end
+local ox, oy = (x0+x1)/2, (y0+y1)/2
+
+for i=0,n-1 do
+	pos[i*2+1], pos[i*2+2] = pos[i*2+1]-ox, pos[i*2+2]-oy
+end
+for j=0,nh-1 do
+	for i=0,2 do
+		head[j*6+i*2+1], head[j*6+i*2+2] = head[j*6+i*2+1]-ox, head[j*6+i*2+2]-oy
+	end
+end
+obj.setoption("drawtarget", "tempbuffer", math.ceil(x1-x0+2),math.ceil(y1-y0+2))
+obj.setoption("blend", "alpha_add")
+obj.load("figure", "四角形", col, 1)
+
+-- 線描画
+local x0, y0 = pos[1], pos[2]
+for i=1,n-1 do
+	local x1, y1 = pos[i*2+1], pos[i*2+2]
+	local dxr, dyr = x1-x0, y1-y0
+	local d_len = math.sqrt(dxr*dxr+dyr*dyr)
+	local dx = dyr*lw/d_len
+	local dy = -dxr*lw/d_len
+	obj.drawpoly(x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0)
+	x0, y0 = x1, y1
+end
+
+-- 鏃描画
+for i=0,nh-1 do
+	local mid_x = (head[i*6+3]+head[i*6+5])/2
+	local mid_y = (head[i*6+4]+head[i*6+6])/2
+	obj.drawpoly(head[i*6+1], head[i*6+2], 0, head[i*6+3], head[i*6+4], 0, mid_x, mid_y, 0, head[i*6+5], head[i*6+6], 0)
+end
+
+-- 折れ点描画
+obj.load("figure", "円", col, lw*8)
+for i=1,n-2 do
+	local x0, y0 = pos[i*2+1], pos[i*2+2]
+	ksa.drawrect(obj, x0-lw, y0-lw, x0+lw, y0+lw)
+end
+
+obj.setoption("blend", 0)
+obj.load("tempbuffer")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@矩形枠
+--track0:線幅,1,1000,20,1
+--track1:角丸,0,1,0,1
+--track2:アンカー数,1,2,2,1
+--dialog:色/col,local col=0x66cc00;座標,a_pos={-100,-100,100,100};
+
+local ksa = require("ksa")
+
+local lw = obj.track0/2
+local round = ( obj.track1 ~= 0 )
+local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+if ( obj.track2 == 2 ) then
+	obj.setanchor("a_pos", 2, "line")
+else
+	obj.setanchor("a_pos", 1, "arm")
+	x1, y1 = -x0, -y0
+end
+
+-- 仮想バッファ
+local ox, oy = (x0+x1)/2, (y0+y1)/2
+x0, y0, x1, y1 = x0-ox, y0-oy, x1-ox, y1-oy
+if ( x1 < x0 ) then
+	x0, x1 = x1, x0
+end
+if ( y1 < y0 ) then
+	y0, y1 = y1, y0
+end
+obj.setoption("drawtarget","tempbuffer",math.ceil(x1+lw+1)*2, math.ceil(y1+lw+1)*2)
+
+-- 描画
+obj.load("figure","四角形",col,1)
+obj.setoption("blend","alpha_add")
+ksa.drawrect(obj, x0-lw, y0, x0+lw, y1)
+ksa.drawrect(obj, x1-lw, y0, x1+lw, y1)
+if ( round ) then
+	ksa.drawrect(obj, x0, y0-lw, x1, y0+lw)
+	ksa.drawrect(obj, x0, y1-lw, x1, y1+lw)
+	obj.load("figure","円",col,lw*8)
+	for i,x in ipairs({x0, x1}) do
+		for i,y in ipairs({y0, y1}) do
+			ksa.drawrect(obj, x-lw, y-lw, x+lw, y+lw)
+		end
+	end
+else
+	ksa.drawrect(obj, x0-lw, y0-lw, x1+lw, y0+lw)
+	ksa.drawrect(obj, x0-lw, y1-lw, x1+lw, y1+lw)
+end
+
+obj.setoption("blend", 0)
+obj.load("tempbuffer")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@枠付き角丸四角形
+--track0:角半径,0,1000,0,1
+--track1:枠太さ,0,1000,0,1
+--track2:内透明度,0,100,0
+--track3:アンカー数,1,2,2,1
+--dialog:内色/col,local col=0x003300;枠色/col,local fcol=0x66cc00;枠透明度,local ft=0;座標,a_pos={-100,-100,100,100};
+
+local ksa = require("ksa")
+
+local r, fw, alp, falp = obj.track0, obj.track1, 1-obj.track2/100, 1-ft/100
+local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+if ( obj.track3 == 2 ) then
+	obj.setanchor("a_pos", 2, "line")
+else
+	obj.setanchor("a_pos", 1, "arm")
+	x1, y1 = -x0, -y0
+end
+
+-- 仮想バッファ
+local ox, oy = (x0+x1)/2, (y0+y1)/2
+x0, y0, x1, y1 = x0-ox, y0-oy, x1-ox, y1-oy
+if ( x1 < x0 ) then
+	x0, x1 = x1, x0
+end
+if ( y1 < y0 ) then
+	y0, y1 = y1, y0
+end
+obj.setoption("drawtarget", "tempbuffer", math.ceil(x1+1)*2, math.ceil(y1+1)*2)
+
+r = math.min(x1, y1, r)
+local r2, r4, r8 = r*2, r*4, r*8
+fw = math.min(x1, y1, fw)
+
+-- 枠描画
+if ( fw ~= 0 and 0 < falp ) then
+	obj.load("figure", "四角形", fcol, 1)
+	obj.setoption("blend", "alpha_add")
+	ksa.drawrect(obj, x0+r, y0, x1-r, y0+fw, falp)
+	ksa.drawrect(obj, x0, y0+r, x0+fw, y1-r, falp)
+	ksa.drawrect(obj, x0+r, y1-fw, x1-r, y1, falp)
+	ksa.drawrect(obj, x1-fw, y0+r, x1, y1-r, falp)
+	obj.load("figure", "円", fcol, r8)
+	ksa.drawrect(obj, x0, y0, x0+r, y0+r, falp, 0, 0, r4, r4)
+	ksa.drawrect(obj, x1-r, y0, x1, y0+r, falp, r4, 0, r8, r4)
+	ksa.drawrect(obj, x1-r, y1-r, x1, y1, falp, r4, r4, r8, r8)
+	ksa.drawrect(obj, x0, y1-r, x0+r, y1, falp, 0, r4, r4, r8)
+	
+	obj.setoption("blend", "alpha_sub")
+	x0, y0, x1, y1 = x0+fw, y0+fw, x1-fw, y1-fw
+	r = math.max(r-fw, 0)
+	r2, r4, r8 = r*2, r*4, r*8
+	obj.load("figure", "円", fcol, r8)
+	ksa.drawrect(obj, x0, y0, x0+r, y0+r, falp, 0, 0, r4, r4)
+	ksa.drawrect(obj, x1-r, y0, x1, y0+r, falp, r4, 0, r8, r4)
+	ksa.drawrect(obj, x1-r, y1-r, x1, y1, falp, r4, r4, r8, r8)
+	ksa.drawrect(obj, x0, y1-r, x0+r, y1, falp, 0, r4, r4, r8)
+end
+
+-- 内描画
+if ( 0 < alp ) then
+	obj.setoption("blend", "alpha_add")
+	obj.load("figure", "四角形", col, 1)
+	ksa.drawrect(obj, x0+r, y0, x1-r, y1, alp)
+	ksa.drawrect(obj, x0, y0+r, x0+r, y1-r, alp)
+	ksa.drawrect(obj, x1-r, y0+r, x1, y1-r, alp)
+	obj.load("figure", "円", col, r8)
+	ksa.drawrect(obj, x0, y0, x0+r, y0+r, alp, 0, 0, r4, r4)
+	ksa.drawrect(obj, x1-r, y0, x1, y0+r, alp, r4, 0, r8, r4)
+	ksa.drawrect(obj, x1-r, y1-r, x1, y1, alp, r4, r4, r8, r8)
+	ksa.drawrect(obj, x0, y1-r, x0+r, y1, alp, 0, r4, r4, r8)
+end
+
+obj.setoption("blend", 0)
+obj.load("tempbuffer")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
