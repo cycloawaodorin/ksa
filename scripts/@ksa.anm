@@ -22,8 +22,8 @@ else
 	high_alp = s_alp
 end
 
-local w = ( obj.w + math.abs(obj.ox)*2 ) * obj.zoom + 1
-local h = ( obj.h + math.abs(obj.oy)*2 ) * obj.zoom + 1
+local w = ( obj.w + math.ceil(math.abs(obj.ox)+1)*2 ) * obj.zoom
+local h = ( obj.h + math.ceil(math.abs(obj.oy)+1)*2 ) * obj.zoom
 obj.setoption("drawtarget", "tempbuffer", w, h)
 
 obj.draw(obj.ox, obj.oy, obj.oz, obj.zoom, low_alp)

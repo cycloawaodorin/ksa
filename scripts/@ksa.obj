@@ -96,14 +96,16 @@ for i=1,na-1 do
 				end
 			end
 		else -- ç≈å„ÇÃÉZÉOÉÅÉìÉgÇ…Ç®ÇØÇÈï`âÊí∑Ç≥Ç™ËVí∑à»è„
-			local r = (fseg_len-head_len)/lens[i]
+			local r = ( fseg_len - head_len*(1+head_wid/(lw+head_wid))/2 )/lens[i]
 			pos[i*2+1] = x0 + dx * r
 			pos[i*2+2] = y0 + dy * r
 			local d_len = math.sqrt(dx*dx+dy*dy)
 			local r = head_wid/d_len
 			local hdx = dy * r
 			local hdy = -dx * r
-			local xx1, yy1 = pos[i*2+1], pos[i*2+2]
+			local r = ( fseg_len - head_len )/lens[i]
+			local xx1 = x0 + dx * r
+			local yy1 = y0 + dy * r
 			head[3] = xx1 + hdx
 			head[4] = yy1 + hdy
 			head[5] = xx1 - hdx
