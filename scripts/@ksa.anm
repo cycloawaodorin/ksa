@@ -22,16 +22,14 @@ else
 	high_alp = s_alp
 end
 
-local w = ( obj.w + math.ceil(math.abs(obj.ox)+1)*2 ) * obj.zoom
-local h = ( obj.h + math.ceil(math.abs(obj.oy)+1)*2 ) * obj.zoom
-obj.setoption("drawtarget", "tempbuffer", w, h)
+obj.setoption("drawtarget", "tempbuffer", obj.w, obj.h)
 
-obj.draw(obj.ox, obj.oy, obj.oz, obj.zoom, low_alp)
+obj.draw(0, 0, 0, 1, low_alp)
 
 if ( low_alp ~= 1 ) then
 	obj.effect("斜めクリッピング", "中心X",obj.track0, "中心Y",obj.track1, "角度",angle, "ぼかし",obj.track3, "幅",0)
-	obj.draw(obj.ox, obj.oy, obj.oz, obj.zoom, (high_alp-low_alp)/(1-low_alp))
+	obj.draw(0, 0, 0, 1, (high_alp-low_alp)/(1-low_alp))
 end
 
 obj.setoption("blend",0)
-obj.load("tempbuffer")
+obj.copybuffer("obj", "tmp")

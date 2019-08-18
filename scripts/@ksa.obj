@@ -189,7 +189,7 @@ for i=1,n-2 do
 end
 
 obj.setoption("blend", 0)
-obj.load("tempbuffer")
+obj.copybuffer("obj", "tmp")
 obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
 
 @‹éŒ`˜g
@@ -241,7 +241,7 @@ else
 end
 
 obj.setoption("blend", 0)
-obj.load("tempbuffer")
+obj.copybuffer("obj", "tmp")
 obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
 
 @˜g•t‚«ŠpŠÛŽlŠpŒ`
@@ -317,5 +317,5 @@ if ( 0 < alp ) then
 end
 
 obj.setoption("blend", 0)
-obj.load("tempbuffer")
+obj.copybuffer("obj", "tmp")
 obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
