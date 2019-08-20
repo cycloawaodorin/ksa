@@ -8,7 +8,7 @@ extern "C" {
 __declspec(dllexport) int
 luaopen_ksa_ext(lua_State *L)
 {
-	luaL_register(L, "ksa_ext", ksa_ext);
+	luaL_register(L, nullptr, ksa_ext);
 	return 1;
 }
 }
