@@ -12,5 +12,5 @@ local e_alp = (1-e_tp/100)
 local angle = math.rad( obj.track2 )
 
 local data, w, h = obj.getpixeldata()
-ksa.trsgrad(data, w, h, obj.track0, obj.track1, angle, obj.track3, s_alp, e_alp)
+ksa.trsgrad(data, w, h, obj.track0+obj.cx+w/2, obj.track1+obj.cy+h/2, angle, obj.track3, s_alp, e_alp)
 obj.putpixeldata(data)
