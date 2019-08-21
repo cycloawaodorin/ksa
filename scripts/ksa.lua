@@ -1,4 +1,4 @@
-local ksa = {}
+local ksa = require("ksa_ext")
 
 ksa.drawrect = function(x0, y0, x1, y1, alpha, u0, v0, u1, v1)
 	if ( u0 ) then
