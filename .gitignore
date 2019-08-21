@@ -1,0 +1,3 @@
+/src/*.dll
+*.o
+/src/functions.c

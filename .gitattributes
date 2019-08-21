@@ -4,3 +4,4 @@
 *.cam linguist-language=Lua
 *.md linguist-documentation
 /LICENSE linguist-documentation
+/src/lua/* linguist-vendored
