@@ -7,26 +7,23 @@ LD = gcc
 LDFLAGS = -shared -Wl,--dll,--enable-stdcall-fixup
 LIBS = lua/lua51.dll
 RM = rm -f
+SH = bash
 
 TARGET = ksa_ext.dll
-OBJS = ksa_ext.o
-
-.SUFFIXES: .cpp .o
-.SUFFIXES: .c .o
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(LD) $(LDFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
+$(TARGET): ksa_ext.o
+	$(LD) $(LDFLAGS) -o $(TARGET) ksa_ext.o $(LIBS)
 
-.c.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
+ksa_ext.o: ksa_ext_main.cpp ksa_ext.cpp functions.c
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ ksa_ext_main.cpp
 
-.cpp.o:
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $<
+functions.c: ksa_ext.cpp extract_functions.sh
+	$(SH) extract_functions.sh
 
 clean:
-	$(RM) $(TARGET) $(OBJS)
+	$(RM) $(TARGET) ksa_ext.o functions.c
 
 release:
 	make all

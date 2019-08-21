@@ -1,4 +1,3 @@
-#include "lua/lua.hpp"
 #include <math.h>
 
 typedef struct {
@@ -31,8 +30,8 @@ ksa_trsgrad(lua_State *L)
 	// 引数受け取り
 	int i=0;
 	PIXEL_BGRA *data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	int w = static_cast<int>(lua_tointeger(L, ++i));
-	int h = static_cast<int>(lua_tointeger(L, ++i));
+	int w = lua_tointeger(L, ++i);
+	int h = lua_tointeger(L, ++i);
 	TRSGRAD_PARAM p;
 	p.cx = static_cast<float>(lua_tonumber(L, ++i));
 	p.cy = static_cast<float>(lua_tonumber(L, ++i));
@@ -56,18 +55,4 @@ ksa_trsgrad(lua_State *L)
 	}
 	
 	return 0;
-}
-
-static const luaL_Reg ksa_ext[] = {
-	{ "trsgrad", ksa_trsgrad },
-	{ nullptr, nullptr }
-};
-
-extern "C" {
-__declspec(dllexport) int
-luaopen_ksa_ext(lua_State *L)
-{
-	luaL_register(L, "ksa_ext", ksa_ext);
-	return 1;
-}
 }
