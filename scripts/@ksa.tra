@@ -1,0 +1,8 @@
+@‰ÁŒ¸‘¬ˆÚ“®
+local i, x = math.modf(obj.getpoint("index"))
+local a = obj.getpoint(i)
+local b = obj.getpoint(i+1)
+-- OŸŠÖ”Œ^ return a+(b-a)*(-2*x+3)*x*x
+-- 1-cos(pi*x)Œ^ return a + (b-a)*(0.5-0.5*math.cos(math.pi*x))
+local tau = 2*math.pi
+return a+(b-a)*(x-math.sin(tau*x)/tau)

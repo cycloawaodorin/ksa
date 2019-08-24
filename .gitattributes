@@ -2,6 +2,7 @@
 *.anm linguist-language=Lua
 *.scn linguist-language=Lua
 *.cam linguist-language=Lua
+*.tra linguist-language=Lua
 *.md linguist-documentation
 /LICENSE linguist-documentation
 /src/lua/* linguist-vendored
