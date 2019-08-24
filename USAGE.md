@@ -81,4 +81,4 @@
 
 ## 加減速移動
 本家の加減速移動がバグっているので追加した加減速移動スクリプト．
-$x-\sin(2\pi x)/(2\pi)\:(0\leq x\leq 1)$のアフィン変換の形に変化させます．
+<img src="https://latex.codecogs.com/gif.latex?x-\sin(2\pi&space;x)/(2\pi)\quad(0\leq&space;x\leq&space;1)" />のアフィン変換の形に変化させます．
