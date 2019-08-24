@@ -71,7 +71,7 @@
  <dt>角度</dt>
   <dd>グラデーションの斜め線の角度(度)です．</dd>
  <dt>幅</dt>
-  <dd>グラデーションにかける幅をピクセル数で指定します．</dd>
+  <dd>グラデーションをかける幅をピクセル数で指定します．</dd>
  <dt>開始透明度，終了透明度</dt>
   <dd>グラデーション前後の透明度を指定します．透明度を逆にするのと「角度」を<code>180</code>ずらすのは同じ効果です．0が透明度変化なし，100が完全透明を意味します．</dd>
 </dl>
@@ -81,4 +81,4 @@
 
 ## 加減速移動
 本家の加減速移動がバグっているので追加した加減速移動スクリプト．
-<img src="https://latex.codecogs.com/gif.latex?x-\sin(2\pi&space;x)/(2\pi)\quad(0\leq&space;x\leq&space;1)" />のアフィン変換の形に変化させます．
+<img src="https://latex.codecogs.com/gif.latex?x-\sin(2\pi&space;x)/(2\pi)\quad(0\leq&space;x\leq&space;1)" /> のアフィン変換の形に変化させます．
