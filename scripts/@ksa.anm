@@ -14,3 +14,31 @@ local angle = math.rad( obj.track2 )
 local data, w, h = obj.getpixeldata()
 ksa.trsgrad(data, w, h, obj.track0+obj.cx+w/2, obj.track1+obj.cy+h/2, angle, obj.track3, s_alp, e_alp)
 obj.putpixeldata(data)
+
+@âÒì]
+--track0:âÒì]ó ,0,100,6,1
+--track1:ècâÒì],0,1,0,1
+--track2:îΩì],0,1,0,1
+
+local ksa = require("ksa")
+
+local angle = math.pi*obj.track0*obj.frame/obj.totalframe
+if ( obj.track2 == 1 ) then
+	angle = -angle
+end
+local x0, x1, y0, y1
+if ( obj.track1 == 0 ) then
+	local dw = obj.w*math.sin(angle)
+	x0 = -dw/2
+	x1 = dw/2
+	y0 = -obj.h/2
+	y1 = obj.h/2
+else
+	local dh = obj.h*math.sin(angle)
+	x0 = -obj.w/2
+	x1 = obj.w/2
+	y0 = -dh/2
+	y1 = dh/2
+end
+
+ksa.drawrect(x0, y0, x1, y1)
