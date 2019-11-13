@@ -94,4 +94,13 @@
 
 ## 加減速移動
 本家の加減速移動がバグっているので追加した加減速移動スクリプト．
-<img src="https://latex.codecogs.com/gif.latex?x-\sin(2\pi&space;x)/(2\pi)\quad(0\leq&space;x\leq&space;1)" /> のアフィン変換の形に変化させます．
+パラメータの値(デフォルト：`2`)によって，次の多項式に比例した形で変化させます．
+
+|パラメータ|多項式|満たす条件|
+|:-|:-|:-|
+|`0`|<img src="https://latex.codecogs.com/gif.latex?x^2(3-2x)" title="x^2(3-2x)" />|速度が連続|
+|`1`|<img src="https://latex.codecogs.com/gif.latex?x^3(10&plus;3x(-5&plus;2x)))" title="x^3(10+3x(-5+2x)))" />|加速度が連続|
+|`2`|<img src="https://latex.codecogs.com/gif.latex?x^4(35-2x(42&plus;5x(-7&plus;2x)))))" title="x^4(35-2x(42+5x(-7+2x)))))" />|躍度が連続|
+
+パラメータが大きいほど「なめらか」ということになります．
+「連続」というのは，移動区間外の移動が0で，速度等の微分値がすべて0のときに連続になることを意味しています．

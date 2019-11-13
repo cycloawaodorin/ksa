@@ -1,8 +1,15 @@
 @‰ÁŒ¸‘¬ˆÚ“®
+--param:2
 local i, x = math.modf(obj.getpoint("index"))
 local a = obj.getpoint(i)
 local b = obj.getpoint(i+1)
--- OŸŠÖ”Œ^ return a+(b-a)*(-2*x+3)*x*x
--- 1-cos(pi*x)Œ^ return a + (b-a)*(0.5-0.5*math.cos(math.pi*x))
-local tau = 2*math.pi
-return a+(b-a)*(x-math.sin(tau*x)/tau)
+-- 1-cos(pi*x)Œ^ return a+(b-a)*(0.5-0.5*math.cos(math.pi*x))
+-- x-sin(2pi*x)Œ^ return a+(b-a)*(x-math.sin(2*math.pi*x)/(2*math.pi))
+if ( param == 0 ) then
+	return a+(b-a)*(3-2*x)*x*x
+elseif ( param == 1 ) then
+	return a+(b-a)*x*x*x(10+3*x*(2*x-5))
+else
+	x2 = x*x
+	return a+(b-a)*x2*x2*(35-2*x*(42+5*x*(2*x-7)))
+end
