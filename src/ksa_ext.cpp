@@ -56,3 +56,36 @@ ksa_trsgrad(lua_State *L)
 	
 	return 0;
 }
+
+static int
+ksa_clip_resize(lua_State *L)
+{
+	// 引数受け取り
+	int i=0;
+	PIXEL_BGRA *src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	int sw = lua_tointeger(L, ++i);
+	int sh = lua_tointeger(L, ++i);
+	PIXEL_BGRA *dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	int dw = lua_tointeger(L, ++i);
+	int dh = lua_tointeger(L, ++i);
+	int ct = lua_tointeger(L, ++i);
+	int cb = lua_tointeger(L, ++i);
+	int cl = lua_tointeger(L, ++i);
+	int cr = lua_tointeger(L, ++i);
+	
+	// クリッピング
+	src += ct*sw;
+	for (int y=0; y<dh; y++) {
+		src += cl;
+		for (int x=0; x<dw; x++) {
+			dest->b = src->b;
+			dest->g = src->g;
+			dest->r = src->r;
+			dest->a = src->a;
+			dest++; src++;
+		}
+		src += cr;
+	}
+	
+	return 0;
+}
