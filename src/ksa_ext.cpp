@@ -1,3 +1,4 @@
+#include <memory>
 #include <cmath>
 #define PI 3.141592653589793f
 
@@ -78,7 +79,7 @@ typedef struct {
 	bool extend;
 	float reversed_scale, correction, weight_scale;
 	int var;
-	float **weights;
+	std::unique_ptr<std::unique_ptr<float[]>[]>weights;
 } CR_XY_PARAM;
 typedef struct {
 	PIXEL_BGRA *src, *dest;
@@ -127,8 +128,8 @@ interpolate(CRESIZE_PARAM *p, int dx, int dy)
 	calc_range(&xrange, static_cast<float>(dx), &(p->x));
 	calc_range(&yrange, static_cast<float>(dy), &(p->y));
 	float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-	float *wxs = p->x.weights[ dx % p->x.var ];
-	float *wys = p->y.weights[ dy % p->y.var ];
+	float *wxs = p->x.weights[ dx % p->x.var ].get();
+	float *wys = p->y.weights[ dy % p->y.var ].get();
 	for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
 		float wy = wys[sy-yrange.start+yrange.skipped];
 		for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
@@ -167,7 +168,7 @@ static void
 set_weights(CR_XY_PARAM *xy)
 {
 	xy->var = (xy->dest_size)/gcd(xy->dest_size, xy->src_size);
-	xy->weights = new float*[xy->var];
+	xy->weights.reset(new std::unique_ptr<float[]>[xy->var]);
 	for ( int i=0; i<(xy->var); i++ ) {
 		float center = static_cast<float>(i)*(xy->reversed_scale) + (xy->correction);
 		int start, end;
@@ -178,20 +179,11 @@ set_weights(CR_XY_PARAM *xy)
 			start = static_cast<int>( std::ceil((static_cast<float>(i)-3.0f)*(xy->reversed_scale)+(xy->correction)) );
 			end = static_cast<int>( std::floor((static_cast<float>(i)+3.0f)*(xy->reversed_scale)+(xy->correction)) );
 		}
-		xy->weights[i] = new float[end-start+1];
+		xy->weights[i].reset(new float[end-start+1]);
 		for ( int sxy = start; sxy <= end; sxy++ ) {
 			xy->weights[i][sxy-start] = lanczos3( (static_cast<float>(sxy)-center)*(xy->weight_scale) );
 		}
 	}
-}
-static void
-free_weights(CR_XY_PARAM *xy)
-{
-	for ( int i=0; i<(xy->var); i++ ) {
-		delete[] xy->weights[i];
-	}
-	delete[] xy->weights;
-	xy->weights = nullptr;
 }
 static int
 ksa_clip_resize(lua_State *L)
@@ -230,10 +222,6 @@ ksa_clip_resize(lua_State *L)
 			interpolate(&p, dx, dy);
 		}
 	}
-	
-	// 重みの解放
-	free_weights(&(p.x));
-	free_weights(&(p.y));
 	
 	return 0;
 }
