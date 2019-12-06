@@ -87,7 +87,6 @@ typedef struct {
 typedef struct {
 	int start, end;
 	float center;
-	bool clipped;
 	int skipped;
 } CR_RANGE;
 static void
@@ -101,15 +100,13 @@ calc_range(CR_RANGE *range, float dest, CR_XY_PARAM *xy)
 		range->start = static_cast<int>( ceilf((dest-3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
 		range->end = static_cast<int>( floorf((dest+3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
 	}
-	range->clipped = false; range->skipped = 0;
+	range->skipped = 0;
 	if ( range->start < xy->clip_start ) {
 		range->start = xy->clip_start;
-		range->clipped = true;
 		range->skipped = xy->clip_start-range->start;
 	}
 	if ( (xy->src_size)-(xy->clip_end)-1 < range->end ) {
 		range->end = (xy->src_size)-(xy->clip_end)-1;
-		range->clipped = true;
 	}
 }
 static unsigned char
@@ -132,34 +129,18 @@ interpolate(CRESIZE_PARAM *p, int dx, int dy)
 	float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
 	float *wxs = p->x.weights[ dx % p->x.var ];
 	float *wys = p->y.weights[ dy % p->y.var ];
-	if ( xrange.clipped || yrange.clipped ) {
-		for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
-			float wy = wys[sy-yrange.start+yrange.skipped];
-			for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
-				float wxy = wy*wxs[sx-xrange.start+xrange.skipped];
-				PIXEL_BGRA *s_px = p->src + ( sy*(p->x.src_size)+sx );
-				float wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
-				r += s_px->r*wxya;
-				a += wxya;
-				w += wxy;
-			}
+	for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
+		float wy = wys[sy-yrange.start+yrange.skipped];
+		for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
+			float wxy = wy*wxs[sx-xrange.start+xrange.skipped];
+			PIXEL_BGRA *s_px = p->src + ( sy*(p->x.src_size)+sx );
+			float wxya = wxy*s_px->a;
+			b += s_px->b*wxya;
+			g += s_px->g*wxya;
+			r += s_px->r*wxya;
+			a += wxya;
+			w += wxy;
 		}
-	} else {
-		for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
-			float wy = wys[sy-yrange.start];
-			for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
-				float wxy = wy*wxs[sx-xrange.start];
-				PIXEL_BGRA *s_px = p->src + ( sy*(p->x.src_size)+sx );
-				float wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
-				r += s_px->r*wxya;
-				a += wxya;
-			}
-		}
-		w = 1.0f;
 	}
 	PIXEL_BGRA *d_px = p->dest + ( dy*(p->x.dest_size)+dx );
 	d_px->b = uc_cast(b/a);
@@ -198,13 +179,8 @@ set_weights(CR_XY_PARAM *xy)
 			end = static_cast<int>( floorf((static_cast<float>(i)+3.0f)*(xy->reversed_scale)+(xy->correction)) );
 		}
 		float *w = new float[end-start+1];
-		float wsum = 0.0f;
 		for ( int sxy = start; sxy <= end; sxy++ ) {
 			w[sxy-start] = lanczos3( (static_cast<float>(sxy)-center)*(xy->weight_scale) );
-			wsum += w[sxy-start];
-		}
-		for ( int sxy = start; sxy <= end; sxy++ ) {
-			w[sxy-start] /= wsum;
 		}
 		xy->weights[i] = w;
 	}
