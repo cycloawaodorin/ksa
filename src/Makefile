@@ -10,20 +10,22 @@ RM = rm -f
 SH = bash
 
 TARGET = ksa_ext.dll
+OBJ = ksa_ext.o
+DEF = ksa_ext.def
 
 all: $(TARGET)
 
 $(TARGET): ksa_ext.o
-	$(LD) $(LDFLAGS) -o $(TARGET) ksa_ext.o $(LIBS)
+	$(LD) $(LDFLAGS) -o $(TARGET) $(OBJ) $(DEF) $(LIBS)
 
-ksa_ext.o: ksa_ext_main.cpp ksa_ext.cpp functions.c
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ ksa_ext_main.cpp
+$(OBJ): ksa_ext_main.cpp ksa_ext.cpp functions.c
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(OBJ) ksa_ext_main.cpp
 
 functions.c: ksa_ext.cpp extract_functions.sh
 	$(SH) extract_functions.sh
 
 clean:
-	$(RM) $(TARGET) ksa_ext.o functions.c
+	$(RM) $(TARGET) $(OBJ) functions.c
 
 release:
 	make all
