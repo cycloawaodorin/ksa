@@ -48,12 +48,23 @@ ksa.drawrect(x0, y0, x1, y1)
 --track1:â∫,0,2000,0,1
 --track2:ç∂,0,2000,0,1
 --track3:âE,0,2000,0,1
+--dialog:ïù,local dw=0;çÇÇ≥,local dh=0;
 
 local ksa = require("ksa")
 local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
 local src, sw, sh = obj.getpixeldata("alloc")
+if ( dw <= 0 ) then
+	dw = sw-(cl+cr)
+elseif ( obj.screen_w < dw ) then
+	dw = obj.screen_w
+end
+if ( dh <= 0 ) then
+	dh = sh-(ct+cb)
+elseif ( obj.screen_h < dh ) then
+	dh = obj.screen_h
+end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
-	obj.setoption("drawtarget", "tempbuffer", sw-(cl+cr), sh-(ct+cb))
+	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
 	local dest, dw, dh = obj.getpixeldata()
 	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
