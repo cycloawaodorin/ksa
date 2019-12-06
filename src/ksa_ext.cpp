@@ -74,31 +74,34 @@ lanczos3(float x)
 	return sinc(x)*sinc(x/3.0f);
 }
 typedef struct {
+	int src_size, dest_size, clip_start, clip_end;
+	bool extend;
+	float reversed_scale, correction, weight_scale;
+} CR_XY_PARAM;
+typedef struct {
 	PIXEL_BGRA *src, *dest;
-	int sw, sh, dw, dh, ct, cb, cl, cr;
-	bool x_ex, y_ex;
-	float rsx, rsy, cx, cy, wsx, wsy;
+	CR_XY_PARAM x, y;
 } CRESIZE_PARAM;
 typedef struct {
 	int start, end;
 	float center;
 } CR_RANGE;
 static void
-calc_range(CR_RANGE *range, float dest, bool extend, float reverse_scale, float correction, int min, int max)
+calc_range(CR_RANGE *range, float dest, CR_XY_PARAM *xy)
 {
-	range->center = dest*reverse_scale + correction + static_cast<float>(min);
-	if ( extend ) {
+	range->center = dest*(xy->reversed_scale) + (xy->correction) + static_cast<float>(xy->clip_start);
+	if ( xy->extend ) {
 		range->start = static_cast<int>( ceilf(range->center-3.0f) );
 		range->end = static_cast<int>( floorf(range->center+3.0f) );
 	} else {
-		range->start = static_cast<int>( ceilf((dest-3.0f)*reverse_scale+correction) ) + min;
-		range->end = static_cast<int>( floorf((dest+3.0f)*reverse_scale+correction) ) + min;
+		range->start = static_cast<int>( ceilf((dest-3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
+		range->end = static_cast<int>( floorf((dest+3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
 	}
-	if ( range->start < min ) {
-		range->start = min;
+	if ( range->start < xy->clip_start ) {
+		range->start = xy->clip_start;
 	}
-	if ( max < range->end ) {
-		range->end = max;
+	if ( (xy->src_size)-(xy->clip_end)-1 < range->end ) {
+		range->end = (xy->src_size)-(xy->clip_end)-1;
 	}
 }
 static unsigned char
@@ -116,18 +119,18 @@ static void
 interpolate(CRESIZE_PARAM *p, int dx, int dy)
 {
 	CR_RANGE xrange, yrange;
-	calc_range(&xrange, static_cast<float>(dx), p->x_ex, p->rsx, p->cx, p->cl, (p->sw)-(p->cr)-1);
-	calc_range(&yrange, static_cast<float>(dy), p->y_ex, p->rsy, p->cy, p->ct, (p->sh)-(p->cb)-1);
+	calc_range(&xrange, static_cast<float>(dx), &(p->x));
+	calc_range(&yrange, static_cast<float>(dy), &(p->y));
 	float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
 	float wxs[xrange.end-xrange.start+1];
 	for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
-		wxs[sx-xrange.start] = lanczos3( (static_cast<float>(sx)-(xrange.center))*(p->wsx) );
+		wxs[sx-xrange.start] = lanczos3( (static_cast<float>(sx)-(xrange.center))*(p->x.weight_scale) );
 	}
 	for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
-		float wy = lanczos3( (static_cast<float>(sy)-(yrange.center))*(p->wsy) );
+		float wy = lanczos3( (static_cast<float>(sy)-(yrange.center))*(p->y.weight_scale) );
 		for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
 			float wxy = wy*wxs[sx-xrange.start];
-			PIXEL_BGRA *s_px = p->src + ( sy*(p->sw)+sx );
+			PIXEL_BGRA *s_px = p->src + ( sy*(p->x.src_size)+sx );
 			float wxya = wxy*s_px->a;
 			b += s_px->b*wxya;
 			g += s_px->g*wxya;
@@ -136,7 +139,7 @@ interpolate(CRESIZE_PARAM *p, int dx, int dy)
 			w += wxy;
 		}
 	}
-	PIXEL_BGRA *d_px = p->dest + ( dy*(p->dw)+dx );
+	PIXEL_BGRA *d_px = p->dest + ( dy*(p->x.dest_size)+dx );
 	d_px->b = uc_cast(b/a);
 	d_px->g = uc_cast(g/a);
 	d_px->r = uc_cast(r/a);
@@ -150,29 +153,29 @@ ksa_clip_resize(lua_State *L)
 	CRESIZE_PARAM p;
 	int i=0;
 	p.src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p.sw = lua_tointeger(L, ++i);
-	p.sh = lua_tointeger(L, ++i);
+	p.x.src_size = lua_tointeger(L, ++i);
+	p.y.src_size = lua_tointeger(L, ++i);
 	p.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p.dw = lua_tointeger(L, ++i);
-	p.dh = lua_tointeger(L, ++i);
-	p.ct = lua_tointeger(L, ++i);
-	p.cb = lua_tointeger(L, ++i);
-	p.cl = lua_tointeger(L, ++i);
-	p.cr = lua_tointeger(L, ++i);
+	p.x.dest_size = lua_tointeger(L, ++i);
+	p.y.dest_size = lua_tointeger(L, ++i);
+	p.y.clip_start = lua_tointeger(L, ++i);
+	p.y.clip_end = lua_tointeger(L, ++i);
+	p.x.clip_start = lua_tointeger(L, ++i);
+	p.x.clip_end = lua_tointeger(L, ++i);
 	
 	// パラメータ計算
-	p.rsx = static_cast<float>(p.sw-p.cl-p.cr)/static_cast<float>(p.dw);
-	p.rsy = static_cast<float>(p.sh-p.ct-p.cb)/static_cast<float>(p.dh);
-	p.x_ex = ( p.rsx <= 1.0f );
-	p.y_ex = ( p.rsy <= 1.0f );
-	p.cx = 0.5f*p.rsx-0.5f;
-	p.cy = 0.5f*p.rsy-0.5f;
-	p.wsx = p.x_ex ? 1.0f : 1.0f/p.rsx;
-	p.wsy = p.y_ex ? 1.0f : 1.0f/p.rsy;
+	p.x.reversed_scale = static_cast<float>(p.x.src_size-p.x.clip_start-p.x.clip_end)/static_cast<float>(p.x.dest_size);
+	p.y.reversed_scale = static_cast<float>(p.y.src_size-p.y.clip_start-p.y.clip_end)/static_cast<float>(p.y.dest_size);
+	p.x.extend = ( p.x.reversed_scale <= 1.0f );
+	p.y.extend = ( p.y.reversed_scale <= 1.0f );
+	p.x.correction = 0.5f*p.x.reversed_scale-0.5f;
+	p.y.correction = 0.5f*p.y.reversed_scale-0.5f;
+	p.x.weight_scale = p.x.extend ? 1.0f : 1.0f/p.x.reversed_scale;
+	p.y.weight_scale = p.y.extend ? 1.0f : 1.0f/p.y.reversed_scale;
 	
 	// 本処理
-	for (int dy=0; dy<p.dh; dy++) {
-		for (int dx=0; dx<p.dw; dx++) {
+	for (int dy=0; dy<p.y.dest_size; dy++) {
+		for (int dx=0; dx<p.x.dest_size; dx++) {
 			interpolate(&p, dx, dy);
 		}
 	}
