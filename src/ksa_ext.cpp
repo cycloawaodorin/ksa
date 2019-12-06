@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 #define PI 3.141592653589793f
 
 typedef struct {
@@ -41,8 +41,8 @@ ksa_trsgrad(lua_State *L)
 	p.a1 = static_cast<float>(lua_tonumber(L, ++i));
 	
 	// パラメータ計算
-	p.sx = -sinf(angle)/gwidth;
-	p.sy = cosf(angle)/gwidth;
+	p.sx = -std::sin(angle)/gwidth;
+	p.sy = std::cos(angle)/gwidth;
 	p.a_cef = p.a1-p.a0;
 	p.a_int = (p.a0+p.a1)*0.5f;
 	
@@ -65,7 +65,7 @@ sinc(float x)
 		return 1.0f;
 	} else {
 		float px = PI*x;
-		return sinf(px)/(px);
+		return std::sin(px)/(px);
 	}
 }
 static float
@@ -94,11 +94,11 @@ calc_range(CR_RANGE *range, float dest, CR_XY_PARAM *xy)
 {
 	range->center = dest*(xy->reversed_scale) + (xy->correction) + static_cast<float>(xy->clip_start);
 	if ( xy->extend ) {
-		range->start = static_cast<int>( ceilf(range->center-3.0f) );
-		range->end = static_cast<int>( floorf(range->center+3.0f) );
+		range->start = static_cast<int>( std::ceil(range->center-3.0f) );
+		range->end = static_cast<int>( std::floor(range->center+3.0f) );
 	} else {
-		range->start = static_cast<int>( ceilf((dest-3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
-		range->end = static_cast<int>( floorf((dest+3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
+		range->start = static_cast<int>( std::ceil((dest-3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
+		range->end = static_cast<int>( std::floor((dest+3.0f)*(xy->reversed_scale)+(xy->correction)) ) + (xy->clip_start);
 	}
 	range->skipped = 0;
 	if ( range->start < xy->clip_start ) {
@@ -112,12 +112,12 @@ calc_range(CR_RANGE *range, float dest, CR_XY_PARAM *xy)
 static unsigned char
 uc_cast(float x)
 {
-	if ( x < 0.0f || isnan(x) ) {
+	if ( x < 0.0f || std::isnan(x) ) {
 		return static_cast<unsigned char>(0);
 	} else if ( 255.0f < x ) {
 		return static_cast<unsigned char>(255);
 	} else {
-		return static_cast<unsigned char>(roundf(x));
+		return static_cast<unsigned char>(std::round(x));
 	}
 }
 static void
@@ -172,17 +172,16 @@ set_weights(CR_XY_PARAM *xy)
 		float center = static_cast<float>(i)*(xy->reversed_scale) + (xy->correction);
 		int start, end;
 		if ( xy->extend ) {
-			start = static_cast<int>( ceilf(center-3.0f) );
-			end = static_cast<int>( floor(center+3.0f) );
+			start = static_cast<int>( std::ceil(center-3.0f) );
+			end = static_cast<int>( std::floor(center+3.0f) );
 		} else {
-			start = static_cast<int>( ceilf((static_cast<float>(i)-3.0f)*(xy->reversed_scale)+(xy->correction)) );
-			end = static_cast<int>( floorf((static_cast<float>(i)+3.0f)*(xy->reversed_scale)+(xy->correction)) );
+			start = static_cast<int>( std::ceil((static_cast<float>(i)-3.0f)*(xy->reversed_scale)+(xy->correction)) );
+			end = static_cast<int>( std::floor((static_cast<float>(i)+3.0f)*(xy->reversed_scale)+(xy->correction)) );
 		}
-		float *w = new float[end-start+1];
+		xy->weights[i] = new float[end-start+1];
 		for ( int sxy = start; sxy <= end; sxy++ ) {
-			w[sxy-start] = lanczos3( (static_cast<float>(sxy)-center)*(xy->weight_scale) );
+			xy->weights[i][sxy-start] = lanczos3( (static_cast<float>(sxy)-center)*(xy->weight_scale) );
 		}
-		xy->weights[i] = w;
 	}
 }
 static void
