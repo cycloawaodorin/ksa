@@ -97,8 +97,8 @@ private:
 		void calc_range(float dest) {
 			center = dest*reversed_scale + correction;
 			if ( extend ) {
-				start = static_cast<int>( std::ceil( center - 3.0f ) );
-				end = static_cast<int>( std::floor( center + 3.0f ) );
+				start = static_cast<int>( std::ceil( center ) ) - 3;
+				end = static_cast<int>( std::floor( center ) ) + 3;
 			} else {
 				start = static_cast<int>( std::ceil( center - 3.0f*reversed_scale ) );
 				end = static_cast<int>( std::floor( center + 3.0f*reversed_scale ) );
@@ -119,14 +119,14 @@ private:
 			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
 		}
 		void set_weights() {
-			var = (dest_size)/gcd(dest_size, src_size);
+			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 			for ( int i=0; i<var; i++ ) {
 				float c = static_cast<float>(i)*reversed_scale + correction;
 				int s, e;
 				if ( extend ) {
-					s = static_cast<int>( std::ceil(c-3.0f) );
-					e = static_cast<int>( std::floor(c+3.0f) );
+					s = static_cast<int>( std::ceil(c) ) - 3;
+					e = static_cast<int>( std::floor(c) ) + 3;
 				} else {
 					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale) );
 					e = static_cast<int>( std::floor(c+3.0f*reversed_scale) );
