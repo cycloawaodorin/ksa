@@ -4,6 +4,7 @@ AviUtlの拡張編集のためのスクリプト集です．
 ## インストール
 拡張編集の script フォルダに scripts 以下のファイルをコピーします．
 または，script フォルダに，scripts へのシンボリックリンクを作成します．
+KSA という名前の scripts へのシンボリックリンクを使うことを推奨します．
 
 ### ビルド
 ksa_ext.dll をビルドするには，src に入り，`make`します．
@@ -11,7 +12,7 @@ ksa_ext.dll をビルドするには，src に入り，`make`します．
 Makefile は MSYS2 環境を想定しているため，その他の環境でビルドするには，適宜修正してください．
 
 ## Requirements
-AviUtl version 1.00, 拡張編集Plugin version 0.92 でのみ動作確認しています．
+AviUtl version 1.10, 拡張編集Plugin version 0.93rc1 での使用を想定しています．
 
 ## 使い方
 各スクリプトの詳細は USAGE.md を参照ください．
