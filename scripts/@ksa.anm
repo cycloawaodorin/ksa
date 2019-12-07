@@ -54,15 +54,17 @@ local ksa = require("ksa")
 local src, sw, sh = obj.getpixeldata("alloc")
 local dw, dh
 if ( obj.check0 ) then
-	dw = math.floor(obj.track1+0.5)
-	dh = math.floor(obj.track2+0.5)
+	dw = ksa.round(obj.track1)
+	dh = ksa.round(obj.track2)
 else
-	dw = math.floor( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 + 0.5 )
-	dh = math.floor( ( sh-(ct+cb) )*obj.track0*obj.track2*1e-4 + 0.5 )
+	dw = ksa.round( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 )
+	dh = ksa.round( ( sh-(ct+cb) )*obj.track0*obj.track2*1e-4 )
 end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
+	debug_print(dw)
+	debug_print(dh)
 	local dest, dw, dh = obj.getpixeldata()
 	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)

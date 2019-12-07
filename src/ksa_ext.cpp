@@ -71,7 +71,7 @@ private:
 			if ( x == 0.0f ) {
 				return 1.0f;
 			} else {
-				return std::sin(x)/(x);
+				return std::sin(x)/x;
 			}
 		}
 		static float
