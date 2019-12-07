@@ -14,7 +14,9 @@ typedef struct {
 class Trsgrad {
 public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
-	float calc_grad(float x, float y) {
+	float
+	calc_grad(float x, float y)
+	{
 		float d = sx * ( x - cx ) + sy * ( y - cy );
 		if ( d < -0.5f ) {
 			return a0;
@@ -59,26 +61,27 @@ ksa_trsgrad(lua_State *L)
 }
 
 // クリッピング & Lanczos3 拡大縮小
-typedef struct {
-	int start, end;
-	float center;
-	int skipped;
-} CR_RANGE;
 class ClipResize {
 private:
 	class XY {
 	private:
-		static float sinc(float x) {
+		static float
+		sinc(float x)
+		{
 			if ( x == 0.0f ) {
 				return 1.0f;
 			} else {
 				return std::sin(x)/(x);
 			}
 		}
-		static float lanczos3(float x) {
+		static float
+		lanczos3(float x)
+		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
-		static int gcd(int a, int b) {
+		static int
+		gcd(int a, int b)
+		{
 			if ( a < b ) {
 				b = b%a;
 			}
@@ -92,12 +95,19 @@ private:
 			return a;
 		}
 	public:
+		typedef struct {
+			int start, end;
+			float center;
+			int skipped;
+		} RANGE;
 		int src_size, dest_size, clip_start, clip_end;
 		bool extend;
 		float reversed_scale, correction, weight_scale;
 		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
-		void calc_range(float dest, CR_RANGE *range) {
+		void
+		calc_range(float dest, RANGE *range)
+		{
 			range->center = dest*reversed_scale + correction;
 			if ( extend ) {
 				range->start = static_cast<int>( std::ceil( range->center ) ) - 3;
@@ -115,13 +125,17 @@ private:
 				range->end = src_size - clip_end - 1;
 			}
 		}
-		void calc_params() {
+		void
+		calc_params()
+		{
 			reversed_scale = static_cast<float>(src_size-clip_start-clip_end)/static_cast<float>(dest_size);
 			extend = ( reversed_scale <= 1.0f );
 			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
 			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
 		}
-		void set_weights() {
+		void
+		set_weights()
+		{
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 			for ( int i=0; i<var; i++ ) {
@@ -141,7 +155,9 @@ private:
 			}
 		}
 	};
-	static unsigned char uc_cast(float x) {
+	static unsigned char
+	uc_cast(float x)
+	{
 		if ( x < 0.0f || std::isnan(x) ) {
 			return static_cast<unsigned char>(0);
 		} else if ( 255.0f < x ) {
@@ -153,12 +169,15 @@ private:
 public:
 	PIXEL_BGRA *src, *dest;
 	std::unique_ptr<XY> x, y;
-	ClipResize() {
+	ClipResize()
+	{
 		x.reset(new XY());
 		y.reset(new XY());
 	}
-	void interpolate(int dx, int dy) {
-		CR_RANGE xrange, yrange;
+	void
+	interpolate(int dx, int dy)
+	{
+		XY::RANGE xrange, yrange;
 		x->calc_range(static_cast<float>(dx), &xrange);
 		y->calc_range(static_cast<float>(dy), &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
@@ -183,16 +202,16 @@ public:
 		d_px->r = uc_cast(r/a);
 		d_px->a = uc_cast(a/w);
 	}
-};
-void
-invoke_interpolate(ClipResize *p, int y_start, int y_end)
-{
-	for (int dy=y_start; dy<=y_end; dy++) {
-		for (int dx=0; dx<(p->x->dest_size); dx++) {
-			p->interpolate(dx, dy);
+	static void
+	invoke_interpolate(ClipResize *p, int y_start, int y_end)
+	{
+		for (int dy=y_start; dy<=y_end; dy++) {
+			for (int dx=0; dx<(p->x->dest_size); dx++) {
+				p->interpolate(dx, dy);
+			}
 		}
 	}
-}
+};
 static int
 ksa_clip_resize(lua_State *L)
 {
@@ -226,7 +245,7 @@ ksa_clip_resize(lua_State *L)
 	// 本処理
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
 	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th - 1));
+		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th - 1));
 	}
 	for (int t=0; t<n_th; t++) {
 		threads[t]->join();
