@@ -48,7 +48,7 @@ ksa.drawrect(x0, y0, x1, y1)
 --track1:下,0,2000,0,1
 --track2:左,0,2000,0,1
 --track3:右,0,2000,0,1
---dialog:幅,local dw=0;高さ,local dh=0;
+--dialog:幅,local dw=0;高さ,local dh=0;スレッド数,local n_th=0;
 
 local ksa = require("ksa")
 local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
@@ -67,6 +67,6 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
 	local dest, dw, dh = obj.getpixeldata()
-	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
+	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)
 end

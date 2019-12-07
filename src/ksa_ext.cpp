@@ -1,4 +1,5 @@
 #include <memory>
+#include <thread>
 #include <cmath>
 #define PI 3.141592653589793f
 
@@ -58,6 +59,11 @@ ksa_trsgrad(lua_State *L)
 }
 
 // クリッピング & Lanczos3 拡大縮小
+typedef struct {
+	int start, end;
+	float center;
+	int skipped;
+} CR_RANGE;
 class ClipResize {
 private:
 	class XY {
@@ -91,25 +97,22 @@ private:
 		float reversed_scale, correction, weight_scale;
 		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
-		int start, end;
-		float center;
-		int skipped;
-		void calc_range(float dest) {
-			center = dest*reversed_scale + correction;
+		void calc_range(float dest, CR_RANGE *range) {
+			range->center = dest*reversed_scale + correction;
 			if ( extend ) {
-				start = static_cast<int>( std::ceil( center ) ) - 3;
-				end = static_cast<int>( std::floor( center ) ) + 3;
+				range->start = static_cast<int>( std::ceil( range->center ) ) - 3;
+				range->end = static_cast<int>( std::floor( range->center ) ) + 3;
 			} else {
-				start = static_cast<int>( std::ceil( center - 3.0f*reversed_scale ) );
-				end = static_cast<int>( std::floor( center + 3.0f*reversed_scale ) );
+				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale ) );
+				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale ) );
 			}
-			skipped = 0;
-			if ( start < clip_start ) {
-				skipped = clip_start - start;
-				start = clip_start;
+			range->skipped = 0;
+			if ( range->start < clip_start ) {
+				range->skipped = clip_start - range->start;
+				range->start = clip_start;
 			}
-			if ( src_size - clip_end - 1 < end ) {
-				end = src_size - clip_end - 1;
+			if ( src_size - clip_end - 1 < range->end ) {
+				range->end = src_size - clip_end - 1;
 			}
 		}
 		void calc_params() {
@@ -155,15 +158,16 @@ public:
 		y.reset(new XY());
 	}
 	void interpolate(int dx, int dy) {
-		x->calc_range(static_cast<float>(dx));
-		y->calc_range(static_cast<float>(dy));
+		CR_RANGE xrange, yrange;
+		x->calc_range(static_cast<float>(dx), &xrange);
+		y->calc_range(static_cast<float>(dy), &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
 		float *wxs = x->weights[ dx % (x->var) ].get();
 		float *wys = y->weights[ dy % (y->var) ].get();
-		for ( int sy=(y->start); sy<=(y->end); sy++ ) {
-			float wy = wys[sy-(y->start)+(y->skipped)];
-			for ( int sx=(x->start); sx<=(x->end); sx++ ) {
-				float wxy = wy*wxs[sx-(x->start)+(x->skipped)];
+		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
+			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
+			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
+				float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
 				PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
 				float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
@@ -180,6 +184,15 @@ public:
 		d_px->a = uc_cast(a/w);
 	}
 };
+void
+invoke_interpolate(ClipResize *p, int y_start, int y_end)
+{
+	for (int dy=y_start; dy<=y_end; dy++) {
+		for (int dx=0; dx<(p->x->dest_size); dx++) {
+			p->interpolate(dx, dy);
+		}
+	}
+}
 static int
 ksa_clip_resize(lua_State *L)
 {
@@ -196,18 +209,27 @@ ksa_clip_resize(lua_State *L)
 	p->y->clip_end = lua_tointeger(L, ++i);
 	p->x->clip_start = lua_tointeger(L, ++i);
 	p->x->clip_end = lua_tointeger(L, ++i);
+	int n_th = lua_tointeger(L, ++i);
 	
 	// パラメータ，重み計算
+	if ( n_th <= 0 ) {
+		n_th += std::thread::hardware_concurrency();
+		if ( n_th <= 0 ) {
+			n_th = 1;
+		}
+	}
 	p->x->calc_params();
 	p->y->calc_params();
 	p->x->set_weights();
 	p->y->set_weights();
 	
 	// 本処理
-	for (int dy=0; dy<(p->y->dest_size); dy++) {
-		for (int dx=0; dx<(p->x->dest_size); dx++) {
-			p->interpolate(dx, dy);
-		}
+	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
+	for (int t=0; t<n_th; t++) {
+		threads[t].reset(new std::thread(invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th - 1));
+	}
+	for (int t=0; t<n_th; t++) {
+		threads[t]->join();
 	}
 	
 	return 0;
