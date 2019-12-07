@@ -43,25 +43,22 @@ end
 
 ksa.drawrect(x0, y0, x1, y1)
 
-@クリッピング&リサイズ
---track0:上,0,2000,0,1
---track1:下,0,2000,0,1
---track2:左,0,2000,0,1
---track3:右,0,2000,0,1
---dialog:幅,local dw=0;高さ,local dh=0;スレッド数,local n_th=0;
+@Lanczos3リサイズ
+--track0:拡大率,0,800,100,0.01
+--track1:X,0,800,100,0.01
+--track2:Y,0,800,100,0.01
+--check0:ドット数でサイズ指定,0
+--dialog:スレッド数,local n_th=-1;上,local ct=0;下,local cb=0;左,local cl=0;右,local cr=0;
 
 local ksa = require("ksa")
-local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
 local src, sw, sh = obj.getpixeldata("alloc")
-if ( dw <= 0 ) then
-	dw = sw-(cl+cr)
-elseif ( obj.screen_w < dw ) then
-	dw = obj.screen_w
-end
-if ( dh <= 0 ) then
-	dh = sh-(ct+cb)
-elseif ( obj.screen_h < dh ) then
-	dh = obj.screen_h
+local dw, dh
+if ( obj.check0 ) then
+	dw = math.floor(obj.track1+0.5)
+	dh = math.floor(obj.track2+0.5)
+else
+	dw = math.floor( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 + 0.5 )
+	dh = math.floor( ( sh-(ct+cb) )*obj.track0*obj.track2*1e-4 + 0.5 )
 end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)

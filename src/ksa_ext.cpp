@@ -205,7 +205,7 @@ public:
 	static void
 	invoke_interpolate(ClipResize *p, int y_start, int y_end)
 	{
-		for (int dy=y_start; dy<=y_end; dy++) {
+		for (int dy=y_start; dy<y_end; dy++) {
 			for (int dx=0; dx<(p->x->dest_size); dx++) {
 				p->interpolate(dx, dy);
 			}
@@ -245,7 +245,7 @@ ksa_clip_resize(lua_State *L)
 	// 本処理
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
 	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th - 1));
+		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th));
 	}
 	for (int t=0; t<n_th; t++) {
 		threads[t]->join();
