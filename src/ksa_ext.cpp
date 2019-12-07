@@ -14,13 +14,13 @@ class Trsgrad {
 public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	float calc_grad(float x, float y) {
-		float d = this->sx * ( x - this->cx ) + this->sy * ( y - this->cy );
+		float d = sx * ( x - cx ) + sy * ( y - cy );
 		if ( d < -0.5f ) {
-			return this->a0;
+			return a0;
 		} else if ( 0.5f < d ) {
-			return this->a1;
+			return a1;
 		} else {
-			return (this->a_int+this->a_cef*d);
+			return (a_int+a_cef*d);
 		}
 	}
 };
@@ -96,39 +96,45 @@ private:
 		float center;
 		int skipped;
 		void calc_range(float dest) {
-			this->center = dest*(this->reversed_scale) + (this->correction) + static_cast<float>(this->clip_start);
-			if ( this->extend ) {
-				this->start = static_cast<int>( std::ceil( this->center - 3.0f ) );
-				this->end = static_cast<int>( std::floor( this->center + 3.0f ) );
+			center = dest*reversed_scale + correction;
+			if ( extend ) {
+				start = static_cast<int>( std::ceil( center - 3.0f ) );
+				end = static_cast<int>( std::floor( center + 3.0f ) );
 			} else {
-				this->start = static_cast<int>( std::ceil( (dest-3.0f)*(this->reversed_scale) + this->correction ) ) + (this->clip_start);
-				this->end = static_cast<int>( std::floor( (dest+3.0f)*(this->reversed_scale) + this->correction ) ) + (this->clip_start);
+				start = static_cast<int>( std::ceil( (dest-3.0f)*reversed_scale + correction ) );
+				end = static_cast<int>( std::floor( (dest+3.0f)*reversed_scale + correction ) );
 			}
-			this->skipped = 0;
-			if ( this->start < this->clip_start ) {
-				this->start = this->clip_start;
-				this->skipped = this->clip_start - this->start;
+			skipped = 0;
+			if ( start < clip_start ) {
+				start = clip_start;
+				skipped = clip_start - start;
 			}
-			if ( this->src_size - this->clip_end - 1 < this->end ) {
-				this->end = this->src_size - this->clip_end - 1;
+			if ( src_size - clip_end - 1 < end ) {
+				end = src_size - clip_end - 1;
 			}
 		}
+		void calc_params() {
+			reversed_scale = static_cast<float>(src_size-clip_start-clip_end)/static_cast<float>(dest_size);
+			extend = ( reversed_scale <= 1.0f );
+			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
+			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
+		}
 		void set_weights() {
-			this->var = (this->dest_size)/gcd(this->dest_size, this->src_size);
-			this->weights.reset(new std::unique_ptr<float[]>[this->var]);
-			for ( int i=0; i<(this->var); i++ ) {
-				float c = static_cast<float>(i)*(this->reversed_scale) + (this->correction);
+			var = (dest_size)/gcd(dest_size, src_size);
+			weights.reset(new std::unique_ptr<float[]>[var]);
+			for ( int i=0; i<(var); i++ ) {
+				float c = static_cast<float>(i)*reversed_scale + correction;
 				int s, e;
-				if ( this->extend ) {
+				if ( extend ) {
 					s = static_cast<int>( std::ceil(c-3.0f) );
 					e = static_cast<int>( std::floor(c+3.0f) );
 				} else {
-					s = static_cast<int>( std::ceil((static_cast<float>(i)-3.0f)*(this->reversed_scale)+(this->correction)) );
-					e = static_cast<int>( std::floor((static_cast<float>(i)+3.0f)*(this->reversed_scale)+(this->correction)) );
+					s = static_cast<int>( std::ceil((static_cast<float>(i)-3.0f)*reversed_scale+correction) );
+					e = static_cast<int>( std::floor((static_cast<float>(i)+3.0f)*reversed_scale+correction) );
 				}
-				this->weights[i].reset(new float[e-s+1]);
+				weights[i].reset(new float[e-s+1]);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
-					this->weights[i][sxy-s] = lanczos3( (static_cast<float>(sxy)-c)*(this->weight_scale) );
+					weights[i][sxy-s] = lanczos3( (static_cast<float>(sxy)-c)*weight_scale );
 				}
 			}
 		}
@@ -150,16 +156,16 @@ public:
 		y.reset(new XY());
 	}
 	void interpolate(int dx, int dy) {
-		this->x->calc_range(static_cast<float>(dx));
-		this->y->calc_range(static_cast<float>(dy));
+		x->calc_range(static_cast<float>(dx));
+		y->calc_range(static_cast<float>(dy));
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		float *wxs = this->x->weights[ dx % (this->x->var) ].get();
-		float *wys = this->y->weights[ dy % (this->y->var) ].get();
-		for ( int sy=(this->y->start); sy<=(this->y->end); sy++ ) {
-			float wy = wys[sy-(this->y->start)+(this->y->skipped)];
-			for ( int sx=(this->x->start); sx<=(this->x->end); sx++ ) {
-				float wxy = wy*wxs[sx-(this->x->start)+(this->x->skipped)];
-				PIXEL_BGRA *s_px = this->src + ( sy*(this->x->src_size)+sx );
+		float *wxs = x->weights[ dx % (x->var) ].get();
+		float *wys = y->weights[ dy % (y->var) ].get();
+		for ( int sy=(y->start); sy<=(y->end); sy++ ) {
+			float wy = wys[sy-(y->start)+(y->skipped)];
+			for ( int sx=(x->start); sx<=(x->end); sx++ ) {
+				float wxy = wy*wxs[sx-(x->start)+(x->skipped)];
+				PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
 				float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
 				g += s_px->g*wxya;
@@ -168,7 +174,7 @@ public:
 				w += wxy;
 			}
 		}
-		PIXEL_BGRA *d_px = this->dest + ( dy*(this->x->dest_size)+dx );
+		PIXEL_BGRA *d_px = dest + ( dy*(x->dest_size)+dx );
 		d_px->b = uc_cast(b/a);
 		d_px->g = uc_cast(g/a);
 		d_px->r = uc_cast(r/a);
@@ -192,17 +198,9 @@ ksa_clip_resize(lua_State *L)
 	p->x->clip_start = lua_tointeger(L, ++i);
 	p->x->clip_end = lua_tointeger(L, ++i);
 	
-	// パラメータ計算
-	p->x->reversed_scale = static_cast<float>((p->x->src_size)-(p->x->clip_start)-(p->x->clip_end))/static_cast<float>(p->x->dest_size);
-	p->y->reversed_scale = static_cast<float>((p->y->src_size)-(p->y->clip_start)-(p->y->clip_end))/static_cast<float>(p->y->dest_size);
-	p->x->extend = ( p->x->reversed_scale <= 1.0f );
-	p->y->extend = ( p->y->reversed_scale <= 1.0f );
-	p->x->correction = 0.5f*(p->x->reversed_scale)-0.5f;
-	p->y->correction = 0.5f*(p->y->reversed_scale)-0.5f;
-	p->x->weight_scale = p->x->extend ? 1.0f : 1.0f/(p->x->reversed_scale);
-	p->y->weight_scale = p->y->extend ? 1.0f : 1.0f/(p->y->reversed_scale);
-	
-	// 重みの計算
+	// パラメータ，重み計算
+	p->x->calc_params();
+	p->y->calc_params();
 	p->x->set_weights();
 	p->y->set_weights();
 	
