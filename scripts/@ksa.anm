@@ -42,3 +42,30 @@ else
 end
 
 ksa.drawrect(x0, y0, x1, y1)
+
+@Lanczos3リサイズ
+--track0:拡大率,0,800,100,0.01
+--track1:X,0,800,100,0.01
+--track2:Y,0,800,100,0.01
+--check0:ドット数でサイズ指定,0
+--dialog:スレッド数,local n_th=-1;上,local ct=0;下,local cb=0;左,local cl=0;右,local cr=0;
+
+local ksa = require("ksa")
+local src, sw, sh = obj.getpixeldata("alloc")
+local dw, dh
+if ( obj.check0 ) then
+	dw = ksa.round(obj.track1)
+	dh = ksa.round(obj.track2)
+else
+	dw = ksa.round( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 )
+	dh = ksa.round( ( sh-(ct+cb) )*obj.track0*obj.track2*1e-4 )
+end
+if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
+	obj.setoption("drawtarget", "tempbuffer", dw, dh)
+	obj.copybuffer("obj", "tmp")
+	debug_print(dw)
+	debug_print(dh)
+	local dest, dw, dh = obj.getpixeldata()
+	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+	obj.putpixeldata(dest)
+end

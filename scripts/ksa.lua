@@ -21,4 +21,8 @@ ksa.drawtri = function(x0, y0, x1, y1, x2, y2, alpha)
 	end
 end
 
+ksa.round = function(x)
+	return math.floor(x+0.5)
+end
+
 return ksa
