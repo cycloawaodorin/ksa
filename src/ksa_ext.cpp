@@ -103,7 +103,7 @@ private:
 		} RANGE;
 		int src_size, dest_size, clip_start, clip_end;
 		bool extend;
-		float reversed_scale, correction, weight_scale;
+		float reversed_scale, correction, weight_scale, epsilon;
 		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
@@ -111,11 +111,11 @@ private:
 		{
 			range->center = dest*reversed_scale + correction;
 			if ( extend ) {
-				range->start = static_cast<int>( std::ceil( range->center + std::numeric_limits<float>::epsilon() ) ) - 3;
-				range->end = static_cast<int>( std::floor( range->center - std::numeric_limits<float>::epsilon() ) ) + 3;
+				range->start = static_cast<int>( std::ceil( range->center + epsilon ) ) - 3;
+				range->end = static_cast<int>( std::floor( range->center - epsilon ) ) + 3;
 			} else {
-				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale + std::numeric_limits<float>::epsilon() ) );
-				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale - std::numeric_limits<float>::epsilon() ) );
+				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale + epsilon ) );
+				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale - epsilon ) );
 			}
 			range->skipped = 0;
 			if ( range->start < clip_start ) {
@@ -133,6 +133,7 @@ private:
 			extend = ( reversed_scale <= 1.0f );
 			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
 			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
+			epsilon = std::numeric_limits<float>::epsilon()*static_cast<float>(src_size*8);
 		}
 		void
 		set_weights()
@@ -140,14 +141,14 @@ private:
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 			for ( int i=0; i<var; i++ ) {
-				float c = static_cast<float>(i+var)*reversed_scale + correction;
+				float c = static_cast<float>(i)*reversed_scale + correction;
 				int s, e;
 				if ( extend ) {
-					s = static_cast<int>( std::ceil(c+std::numeric_limits<float>::epsilon()) ) - 3;
-					e = static_cast<int>( std::floor(c-std::numeric_limits<float>::epsilon()) ) + 3;
+					s = static_cast<int>( std::ceil(c+epsilon) ) - 3;
+					e = static_cast<int>( std::floor(c-epsilon) ) + 3;
 				} else {
-					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale+std::numeric_limits<float>::epsilon()) );
-					e = static_cast<int>( std::floor(c+3.0f*reversed_scale-std::numeric_limits<float>::epsilon()) );
+					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale+epsilon) );
+					e = static_cast<int>( std::floor(c+3.0f*reversed_scale-epsilon) );
 				}
 				weights[i].reset(new float[e-s+1]);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
