@@ -2,7 +2,8 @@
 #include <thread>
 #include <cmath>
 #include <limits>
-#define PI 3.141592653589793f
+
+constexpr float PI = 3.141592653589793f;
 
 typedef struct {
 	unsigned char b;
@@ -96,11 +97,11 @@ private:
 			return a;
 		}
 	public:
-		typedef struct {
+		using RANGE = struct {
 			int start, end;
 			float center;
 			int skipped;
-		} RANGE;
+		};
 		int src_size, dest_size, clip_start, clip_end;
 		bool extend;
 		float reversed_scale, correction, weight_scale, epsilon;
@@ -260,10 +261,10 @@ ksa_clip_resize(lua_State *L)
 // クリッピング&倍角
 class ClipDouble {
 private:
-	typedef struct {
+	using RANGE = struct {
 		int start, end;
 		const float *weights;
-	} RANGE;
+	};
 	static void
 	calc_range(RANGE *range, int dxy, int clip_start, int smax)
 	{
@@ -340,8 +341,8 @@ public:
 		}
 	}
 };
-const float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
-const float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
+constexpr float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
+constexpr float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
 static int
 ksa_clip_double(lua_State *L)
 {
