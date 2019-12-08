@@ -6,13 +6,23 @@
 namespace KSA {
 
 constexpr float PI = 3.141592653589793f;
-
 using PIXEL_BGRA = struct pixel_bgra {
 	unsigned char b;
 	unsigned char g;
 	unsigned char r;
 	unsigned char a;
 };
+static unsigned char
+uc_cast(const float x)
+{
+	if ( x < 0.0f || std::isnan(x) ) {
+		return static_cast<unsigned char>(0);
+	} else if ( 255.0f < x ) {
+		return static_cast<unsigned char>(255);
+	} else {
+		return static_cast<unsigned char>(std::round(x));
+	}
+}
 
 // 透明グラデーション
 class Trsgrad {
@@ -160,17 +170,6 @@ private:
 			}
 		}
 	};
-	static unsigned char
-	uc_cast(const float x)
-	{
-		if ( x < 0.0f || std::isnan(x) ) {
-			return static_cast<unsigned char>(0);
-		} else if ( 255.0f < x ) {
-			return static_cast<unsigned char>(255);
-		} else {
-			return static_cast<unsigned char>(std::round(x));
-		}
-	}
 	void
 	interpolate(const int dx, const int dy)
 	{
@@ -289,17 +288,6 @@ private:
 		}
 		if ( smax < range->end ) {
 			range->end = smax;
-		}
-	}
-	static unsigned char
-	uc_cast(const float x)
-	{
-		if ( x < 0.0f || std::isnan(x) ) {
-			return static_cast<unsigned char>(0);
-		} else if ( 255.0f < x ) {
-			return static_cast<unsigned char>(255);
-		} else {
-			return static_cast<unsigned char>(std::round(x));
 		}
 	}
 	void
