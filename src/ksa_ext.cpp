@@ -166,14 +166,6 @@ private:
 			return static_cast<unsigned char>(std::round(x));
 		}
 	}
-public:
-	PIXEL_BGRA *src, *dest;
-	std::unique_ptr<XY> x, y;
-	ClipResize()
-	{
-		x.reset(new XY());
-		y.reset(new XY());
-	}
 	void
 	interpolate(int dx, int dy)
 	{
@@ -187,7 +179,7 @@ public:
 			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
 			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
 				float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
-				PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
+				const PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
 				float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
 				g += s_px->g*wxya;
@@ -201,6 +193,15 @@ public:
 		d_px->g = uc_cast(g/a);
 		d_px->r = uc_cast(r/a);
 		d_px->a = uc_cast(a/w);
+	}
+public:
+	const PIXEL_BGRA *src;
+	PIXEL_BGRA *dest;
+	std::unique_ptr<XY> x, y;
+	ClipResize()
+	{
+		x.reset(new XY());
+		y.reset(new XY());
 	}
 	static void
 	invoke_interpolate(ClipResize *p, int y_start, int y_end)
@@ -246,6 +247,129 @@ ksa_clip_resize(lua_State *L)
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
 	for (int t=0; t<n_th; t++) {
 		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th));
+	}
+	for (int t=0; t<n_th; t++) {
+		threads[t]->join();
+	}
+	
+	return 0;
+}
+
+// クリッピング&倍角
+class ClipDouble {
+private:
+	typedef struct {
+		int start, end;
+		const float *weights;
+	} RANGE;
+	static void
+	calc_range(RANGE *range, int dxy, int clip_start, int smax)
+	{
+		if ( dxy%2 == 0 ) {
+			range->start = dxy/2 - 3 + clip_start;
+			range->end = dxy/2 + 2 + clip_start;
+		} else {
+			range->start = dxy/2 - 2 + clip_start;
+			range->end = dxy/2 + 3 + clip_start;
+		}
+		int skipped=0;
+		if ( range->start < clip_start ) {
+			skipped = clip_start - range->start;
+			range->start = clip_start;
+		}
+		if ( dxy%2 == 0 ) {
+			range->weights = WEIGHTS_E + skipped;
+		} else {
+			range->weights = WEIGHTS_O + skipped;
+		}
+		if ( smax < range->end ) {
+			range->end = smax;
+		}
+	}
+	static unsigned char
+	uc_cast(float x)
+	{
+		if ( x < 0.0f || std::isnan(x) ) {
+			return static_cast<unsigned char>(0);
+		} else if ( 255.0f < x ) {
+			return static_cast<unsigned char>(255);
+		} else {
+			return static_cast<unsigned char>(std::round(x));
+		}
+	}
+	void
+	interpolate(int dx, int dy)
+	{
+		RANGE xrange, yrange;
+		calc_range(&xrange, dx, cl, sw-cr-1);
+		calc_range(&yrange, dy, ct, sh-cb-1);
+		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
+		for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
+			float wy = yrange.weights[ sy - yrange.start ];
+			for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
+				float wxy = wy*xrange.weights[ sx - xrange.start ];
+				const PIXEL_BGRA *s_px = src + ( sy*sw+sx );
+				float wxya = wxy*s_px->a;
+				b += s_px->b*wxya;
+				g += s_px->g*wxya;
+				r += s_px->r*wxya;
+				a += wxya;
+				w += wxy;
+			}
+		}
+		PIXEL_BGRA *d_px = dest + ( dy*dw+dx );
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/w);
+	}
+public:
+	static const float WEIGHTS_E[6], WEIGHTS_O[6];
+	const PIXEL_BGRA *src;
+	PIXEL_BGRA *dest;
+	int sw, sh, dw, dh, ct, cb, cl, cr;
+	static void
+	invoke_interpolate(ClipDouble *p, int y_start, int y_end)
+	{
+		for (int dy=y_start; dy<y_end; dy++) {
+			for (int dx=0; dx<(p->dw); dx++) {
+				p->interpolate(dx, dy);
+			}
+		}
+	}
+};
+const float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
+const float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
+static int
+ksa_clip_double(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<ClipDouble> p(new ClipDouble());
+	int i=0;
+	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->sw = lua_tointeger(L, ++i);
+	p->sh = lua_tointeger(L, ++i);
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->ct = lua_tointeger(L, ++i);
+	p->cb = lua_tointeger(L, ++i);
+	p->cl = lua_tointeger(L, ++i);
+	p->cr = lua_tointeger(L, ++i);
+	int n_th = lua_tointeger(L, ++i);
+	
+	// パラメータ計算
+	p->dw = (p->sw - p->cl - p->cr)*2;
+	p->dh = (p->sh - p->ct - p->cb)*2;
+	if ( n_th <= 0 ) {
+		n_th += std::thread::hardware_concurrency();
+		if ( n_th <= 0 ) {
+			n_th = 1;
+		}
+	}
+	
+	// 本処理
+	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
+	for (int t=0; t<n_th; t++) {
+		threads[t].reset(new std::thread(ClipDouble::invoke_interpolate, p.get(), ( t*(p->dh) )/n_th, ( (t+1)*(p->dh) )/n_th));
 	}
 	for (int t=0; t<n_th; t++) {
 		threads[t]->join();

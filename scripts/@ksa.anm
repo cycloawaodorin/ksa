@@ -63,9 +63,25 @@ end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
-	debug_print(dw)
-	debug_print(dh)
 	local dest, dw, dh = obj.getpixeldata()
 	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+	obj.putpixeldata(dest)
+end
+
+@クリッピング&倍角化
+--track0:上,0,2000,0,1
+--track1:下,0,2000,0,1
+--track2:左,0,2000,0,1
+--track3:右,0,2000,0,1
+--dialog:スレッド数,local n_th=-1;
+local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
+
+local ksa = require("ksa")
+local src, sw, sh = obj.getpixeldata("alloc")
+if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
+	obj.setoption("drawtarget", "tempbuffer", (sw-cl-cr)*2, (sh-ct-cb)*2)
+	obj.copybuffer("obj", "tmp")
+	local dest, dw, dh = obj.getpixeldata()
+	ksa.clip_double(src, sw, sh, dest, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)
 end
