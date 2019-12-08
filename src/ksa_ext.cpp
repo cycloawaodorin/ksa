@@ -35,13 +35,13 @@ ksa_trsgrad(lua_State *L)
 	// 引数受け取り
 	int i=0;
 	PIXEL_BGRA *data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	int w = lua_tointeger(L, ++i);
-	int h = lua_tointeger(L, ++i);
+	const int w = lua_tointeger(L, ++i);
+	const int h = lua_tointeger(L, ++i);
 	std::unique_ptr<Trsgrad> p(new Trsgrad);
 	p->cx = static_cast<float>(lua_tonumber(L, ++i));
 	p->cy = static_cast<float>(lua_tonumber(L, ++i));
-	float angle = static_cast<float>(lua_tonumber(L, ++i));
-	float gwidth = static_cast<float>(lua_tonumber(L, ++i));
+	const float angle = static_cast<float>(lua_tonumber(L, ++i));
+	const float gwidth = static_cast<float>(lua_tonumber(L, ++i));
 	p->a0 = static_cast<float>(lua_tonumber(L, ++i));
 	p->a1 = static_cast<float>(lua_tonumber(L, ++i));
 	
@@ -68,7 +68,7 @@ private:
 	class XY {
 	private:
 		static float
-		sinc(float x)
+		sinc(const float x)
 		{
 			if ( x == 0.0f ) {
 				return 1.0f;
@@ -77,7 +77,7 @@ private:
 			}
 		}
 		static float
-		lanczos3(float x)
+		lanczos3(const float x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
@@ -108,7 +108,7 @@ private:
 		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
-		calc_range(float dest, RANGE *range)
+		calc_range(const float dest, RANGE *range)
 		{
 			range->center = dest*reversed_scale + correction;
 			if ( extend ) {
@@ -142,7 +142,7 @@ private:
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 			for ( int i=0; i<var; i++ ) {
-				float c = static_cast<float>(i)*reversed_scale + correction;
+				const float c = static_cast<float>(i)*reversed_scale + correction;
 				int s, e;
 				if ( extend ) {
 					s = static_cast<int>( std::ceil(c+epsilon) ) - 3;
@@ -159,7 +159,7 @@ private:
 		}
 	};
 	static unsigned char
-	uc_cast(float x)
+	uc_cast(const float x)
 	{
 		if ( x < 0.0f || std::isnan(x) ) {
 			return static_cast<unsigned char>(0);
@@ -170,20 +170,20 @@ private:
 		}
 	}
 	void
-	interpolate(int dx, int dy)
+	interpolate(const int dx, const int dy)
 	{
 		XY::RANGE xrange, yrange;
 		x->calc_range(static_cast<float>(dx), &xrange);
 		y->calc_range(static_cast<float>(dy), &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		float *wxs = x->weights[ dx % (x->var) ].get();
-		float *wys = y->weights[ dy % (y->var) ].get();
+		const float *wxs = x->weights[ dx % (x->var) ].get();
+		const float *wys = y->weights[ dy % (y->var) ].get();
 		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
-			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
+			const float wy = wys[sy-(yrange.start)+(yrange.skipped)];
 			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
-				float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
+				const float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
 				const PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
-				float wxya = wxy*s_px->a;
+				const float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
 				g += s_px->g*wxya;
 				r += s_px->r*wxya;
@@ -266,7 +266,7 @@ private:
 		const float *weights;
 	};
 	static void
-	calc_range(RANGE *range, int dxy, int clip_start, int smax)
+	calc_range(RANGE *range, const int dxy, const int clip_start, const int smax)
 	{
 		if ( dxy%2 == 0 ) {
 			range->start = dxy/2 - 3 + clip_start;
@@ -290,7 +290,7 @@ private:
 		}
 	}
 	static unsigned char
-	uc_cast(float x)
+	uc_cast(const float x)
 	{
 		if ( x < 0.0f || std::isnan(x) ) {
 			return static_cast<unsigned char>(0);
@@ -332,7 +332,7 @@ public:
 	PIXEL_BGRA *dest;
 	int sw, sh, dw, dh, ct, cb, cl, cr;
 	static void
-	invoke_interpolate(ClipDouble *p, int y_start, int y_end)
+	invoke_interpolate(ClipDouble *p, const int y_start, const int y_end)
 	{
 		for (int dy=y_start; dy<y_end; dy++) {
 			for (int dx=0; dx<(p->dw); dx++) {
