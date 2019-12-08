@@ -1,6 +1,7 @@
 #include <memory>
 #include <thread>
 #include <cmath>
+#include <limits>
 #define PI 3.141592653589793f
 
 typedef struct {
@@ -110,11 +111,11 @@ private:
 		{
 			range->center = dest*reversed_scale + correction;
 			if ( extend ) {
-				range->start = static_cast<int>( std::ceil( range->center ) ) - 3;
-				range->end = static_cast<int>( std::floor( range->center ) ) + 3;
+				range->start = static_cast<int>( std::ceil( range->center + std::numeric_limits<float>::epsilon() ) ) - 3;
+				range->end = static_cast<int>( std::floor( range->center - std::numeric_limits<float>::epsilon() ) ) + 3;
 			} else {
-				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale ) );
-				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale ) );
+				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale + std::numeric_limits<float>::epsilon() ) );
+				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale - std::numeric_limits<float>::epsilon() ) );
 			}
 			range->skipped = 0;
 			if ( range->start < clip_start ) {
@@ -142,11 +143,11 @@ private:
 				float c = static_cast<float>(i+var)*reversed_scale + correction;
 				int s, e;
 				if ( extend ) {
-					s = static_cast<int>( std::ceil(c) ) - 3;
-					e = static_cast<int>( std::floor(c) ) + 3;
+					s = static_cast<int>( std::ceil(c+std::numeric_limits<float>::epsilon()) ) - 3;
+					e = static_cast<int>( std::floor(c-std::numeric_limits<float>::epsilon()) ) + 3;
 				} else {
-					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale) );
-					e = static_cast<int>( std::floor(c+3.0f*reversed_scale) );
+					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale+std::numeric_limits<float>::epsilon()) );
+					e = static_cast<int>( std::floor(c+3.0f*reversed_scale-std::numeric_limits<float>::epsilon()) );
 				}
 				weights[i].reset(new float[e-s+1]);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
