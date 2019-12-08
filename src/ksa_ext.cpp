@@ -3,14 +3,16 @@
 #include <cmath>
 #include <limits>
 
+namespace KSA {
+
 constexpr float PI = 3.141592653589793f;
 
-typedef struct {
+using PIXEL_BGRA = struct pixel_bgra {
 	unsigned char b;
 	unsigned char g;
 	unsigned char r;
 	unsigned char a;
-} PIXEL_BGRA;
+};
 
 // 透明グラデーション
 class Trsgrad {
@@ -380,3 +382,5 @@ ksa_clip_double(lua_State *L)
 	
 	return 0;
 }
+
+};
