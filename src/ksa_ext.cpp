@@ -130,7 +130,7 @@ private:
 		{
 			reversed_scale = static_cast<float>(src_size-clip_start-clip_end)/static_cast<float>(dest_size);
 			extend = ( reversed_scale <= 1.0f );
-			correction = 1.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
+			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
 			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
 		}
 		void
@@ -139,7 +139,7 @@ private:
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 			for ( int i=0; i<var; i++ ) {
-				float c = static_cast<float>(i)*reversed_scale + correction;
+				float c = static_cast<float>(i+var)*reversed_scale + correction;
 				int s, e;
 				if ( extend ) {
 					s = static_cast<int>( std::ceil(c) ) - 3;
