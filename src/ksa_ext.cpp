@@ -130,7 +130,7 @@ private:
 		{
 			reversed_scale = static_cast<float>(src_size-clip_start-clip_end)/static_cast<float>(dest_size);
 			extend = ( reversed_scale <= 1.0f );
-			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
+			correction = 1.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
 			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
 		}
 		void
