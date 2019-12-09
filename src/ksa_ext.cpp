@@ -1,15 +1,183 @@
 #include <memory>
 #include <thread>
 #include <cmath>
-#include <limits>
-#define PI 3.141592653589793f
+#include <cstdint>
 
-typedef struct {
+namespace KSA {
+
+constexpr float PI = 3.141592653589793f;
+using PIXEL_BGRA = struct pixel_bgra {
 	unsigned char b;
 	unsigned char g;
 	unsigned char r;
 	unsigned char a;
-} PIXEL_BGRA;
+};
+static unsigned char
+uc_cast(float x)
+{
+	if ( x < 0.0f || std::isnan(x) ) {
+		return static_cast<unsigned char>(0);
+	} else if ( 255.0f < x ) {
+		return static_cast<unsigned char>(255);
+	} else {
+		return static_cast<unsigned char>(std::round(x));
+	}
+}
+class Rational {
+private:
+	std::int64_t numerator, denominator;
+	static std::int64_t
+	gcd(std::int64_t a, std::int64_t b)
+	{
+		if ( a < b ) {
+			if ( a == 0 ) {
+				return b;
+			} else {
+				b = b%a;
+			}
+		}
+		while ( b != 0 ) {
+			a = a%b;
+			if ( a == 0 ) {
+				return b;
+			}
+			b = b%a;
+		}
+		return a;
+	}
+public:
+	Rational(std::int64_t num, std::int64_t den)
+	{
+		std::int64_t c = gcd(std::abs(num), std::abs(den));
+		if ( den < 0 ) {
+			numerator = -num/c;
+			denominator = -den/c;
+		} else {
+			numerator = num/c;
+			denominator = den/c;
+		}
+	}
+	Rational(std::int64_t i)
+	{
+		numerator = i;
+		denominator = 1;
+	}
+	Rational()
+	{
+		numerator = 0;
+		denominator = 1;
+	}
+	std::int64_t
+	get_numerator()
+	const {
+		return numerator;
+	}
+	std::int64_t
+	get_denominator()
+	const {
+		return denominator;
+	}
+	Rational
+	operator +(const Rational &other)
+	const {
+		std::int64_t c = gcd(denominator, other.denominator);
+		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
+	}
+	Rational
+	operator +(std::int64_t other)
+	const {
+		return Rational(numerator+other*denominator, denominator);
+	}
+	Rational
+	operator -(const Rational &other)
+	const {
+		std::int64_t c = gcd(denominator, other.denominator);
+		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
+	}
+	Rational
+	operator -(std::int64_t other)
+	const {
+		return Rational(numerator-other*denominator, denominator);
+	}
+	Rational
+	operator *(const Rational &other)
+	const {
+		std::int64_t ca = gcd(std::abs(numerator), other.denominator);
+		std::int64_t cb = gcd(denominator, std::abs(other.numerator));
+		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
+	}
+	Rational
+	operator *(std::int64_t other)
+	const {
+		std::int64_t c = gcd(std::abs(other), denominator);
+		return Rational(numerator*(other/c), denominator/c);
+	}
+	Rational
+	operator /(const Rational &other)
+	const {
+		std::int64_t ca = gcd(std::abs(numerator), std::abs(other.numerator));
+		std::int64_t cb = gcd(denominator, other.denominator);
+		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
+	}
+	Rational
+	operator /(std::int64_t other)
+	const {
+		std::int64_t c = gcd(std::abs(numerator), std::abs(other));
+		return Rational(numerator/c, denominator*(other/c));
+	}
+	Rational
+	reciprocal()
+	const {
+		return Rational(denominator, numerator);
+	}
+	std::int64_t
+	floor()
+	const {
+		std::int64_t r = numerator % denominator;
+		if ( r < 0 ) {
+			return ( (numerator-r)/denominator - 1 );
+		} else {
+			return ( (numerator-r)/denominator );
+		}
+	}
+	std::int64_t
+	floor_eps()
+	const {
+		std::int64_t r = numerator % denominator;
+		if ( r <= 0 ) {
+			return ( (numerator-r)/denominator - 1 );
+		} else {
+			return ( (numerator-r)/denominator );
+		}
+	}
+	std::int64_t
+	ceil()
+	const {
+		std::int64_t r = numerator % denominator;
+		if ( r <= 0 ) {
+			return ( (numerator-r)/denominator );
+		} else {
+			return ( (numerator-r)/denominator + 1 );
+		}
+	}
+	std::int64_t
+	ceil_eps()
+	const {
+		std::int64_t r = numerator % denominator;
+		if ( r < 0 ) {
+			return ( (numerator-r)/denominator );
+		} else {
+			return ( (numerator-r)/denominator + 1 );
+		}
+	}
+	float
+	to_float()
+	const {
+		return( static_cast<float>(numerator) / static_cast<float>(denominator) );
+	}
+};
 
 // 透明グラデーション
 class Trsgrad {
@@ -34,8 +202,8 @@ ksa_trsgrad(lua_State *L)
 	// 引数受け取り
 	int i=0;
 	PIXEL_BGRA *data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	int w = lua_tointeger(L, ++i);
-	int h = lua_tointeger(L, ++i);
+	const int w = lua_tointeger(L, ++i);
+	const int h = lua_tointeger(L, ++i);
 	std::unique_ptr<Trsgrad> p(new Trsgrad);
 	p->cx = static_cast<float>(lua_tonumber(L, ++i));
 	p->cy = static_cast<float>(lua_tonumber(L, ++i));
@@ -96,26 +264,26 @@ private:
 			return a;
 		}
 	public:
-		typedef struct {
+		using RANGE = struct {
 			int start, end;
-			float center;
+			Rational center;
 			int skipped;
-		} RANGE;
+		};
 		int src_size, dest_size, clip_start, clip_end;
 		bool extend;
-		float reversed_scale, correction, weight_scale, epsilon;
+		Rational reversed_scale, correction, weight_scale;
 		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
-		calc_range(float dest, RANGE *range)
+		calc_range(int dest, RANGE *range)
 		{
-			range->center = dest*reversed_scale + correction;
+			range->center = reversed_scale*dest+correction;
 			if ( extend ) {
-				range->start = static_cast<int>( std::ceil( range->center + epsilon ) ) - 3;
-				range->end = static_cast<int>( std::floor( range->center - epsilon ) ) + 3;
+				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
+				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
 			} else {
-				range->start = static_cast<int>( std::ceil( range->center - 3.0f*reversed_scale + epsilon ) );
-				range->end = static_cast<int>( std::floor( range->center + 3.0f*reversed_scale - epsilon ) );
+				range->start = static_cast<int>( ( range->center - reversed_scale*3 ).ceil_eps() );
+				range->end = static_cast<int>( ( range->center + reversed_scale*3 ).floor_eps() );
 			}
 			range->skipped = 0;
 			if ( range->start < clip_start ) {
@@ -129,54 +297,42 @@ private:
 		void
 		calc_params()
 		{
-			reversed_scale = static_cast<float>(src_size-clip_start-clip_end)/static_cast<float>(dest_size);
-			extend = ( reversed_scale <= 1.0f );
-			correction = 0.5f*reversed_scale - 0.5f + static_cast<float>(clip_start);
-			weight_scale = extend ? 1.0f : 1.0f/reversed_scale;
-			epsilon = std::numeric_limits<float>::epsilon()*static_cast<float>(src_size*8);
-		}
-		void
-		set_weights()
-		{
+			reversed_scale = Rational(src_size-clip_start-clip_end, dest_size);
+			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
+			correction = (reversed_scale-1)/2 + clip_start;
+			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
-			for ( int i=0; i<var; i++ ) {
-				float c = static_cast<float>(i)*reversed_scale + correction;
+		}
+		void
+		set_weights(int start, int end)
+		{
+			for (int i=start; i<end; i++) {
+				Rational c = reversed_scale*i + correction;
 				int s, e;
 				if ( extend ) {
-					s = static_cast<int>( std::ceil(c+epsilon) ) - 3;
-					e = static_cast<int>( std::floor(c-epsilon) ) + 3;
+					s = static_cast<int>( c.ceil_eps() ) - 3;
+					e = static_cast<int>( c.floor_eps() ) + 3;
 				} else {
-					s = static_cast<int>( std::ceil(c-3.0f*reversed_scale+epsilon) );
-					e = static_cast<int>( std::floor(c+3.0f*reversed_scale-epsilon) );
+					s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
+					e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
 				}
 				weights[i].reset(new float[e-s+1]);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
-					weights[i][sxy-s] = lanczos3( (static_cast<float>(sxy)-c)*weight_scale );
+					weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 				}
 			}
 		}
 	};
-	static unsigned char
-	uc_cast(float x)
-	{
-		if ( x < 0.0f || std::isnan(x) ) {
-			return static_cast<unsigned char>(0);
-		} else if ( 255.0f < x ) {
-			return static_cast<unsigned char>(255);
-		} else {
-			return static_cast<unsigned char>(std::round(x));
-		}
-	}
 	void
 	interpolate(int dx, int dy)
 	{
 		XY::RANGE xrange, yrange;
-		x->calc_range(static_cast<float>(dx), &xrange);
-		y->calc_range(static_cast<float>(dy), &yrange);
+		x->calc_range(dx, &xrange);
+		y->calc_range(dy, &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		float *wxs = x->weights[ dx % (x->var) ].get();
-		float *wys = y->weights[ dy % (y->var) ].get();
+		const float *wxs = x->weights[ dx % (x->var) ].get();
+		const float *wys = y->weights[ dy % (y->var) ].get();
 		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
 			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
 			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
@@ -206,6 +362,12 @@ public:
 		y.reset(new XY());
 	}
 	static void
+	invoke_set_weights(ClipResize *p, int t, int n_th)
+	{
+		p->x->set_weights(( t*(p->x->var) )/n_th, ( (t+1)*(p->x->var) )/n_th);
+		p->y->set_weights(( t*(p->y->var) )/n_th, ( (t+1)*(p->y->var) )/n_th);
+	}
+	static void
 	invoke_interpolate(ClipResize *p, int y_start, int y_end)
 	{
 		for (int dy=y_start; dy<y_end; dy++) {
@@ -233,7 +395,7 @@ ksa_clip_resize(lua_State *L)
 	p->x->clip_end = lua_tointeger(L, ++i);
 	int n_th = lua_tointeger(L, ++i);
 	
-	// パラメータ，重み計算
+	// パラメータ
 	if ( n_th <= 0 ) {
 		n_th += std::thread::hardware_concurrency();
 		if ( n_th <= 0 ) {
@@ -242,11 +404,15 @@ ksa_clip_resize(lua_State *L)
 	}
 	p->x->calc_params();
 	p->y->calc_params();
-	p->x->set_weights();
-	p->y->set_weights();
 	
-	// 本処理
+	// 重み計算，本処理
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
+	for (int t=0; t<n_th; t++) {
+		threads[t].reset(new std::thread(ClipResize::invoke_set_weights, p.get(), t, n_th));
+	}
+	for (int t=0; t<n_th; t++) {
+		threads[t]->join();
+	}
 	for (int t=0; t<n_th; t++) {
 		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th));
 	}
@@ -260,10 +426,10 @@ ksa_clip_resize(lua_State *L)
 // クリッピング&倍角
 class ClipDouble {
 private:
-	typedef struct {
+	using RANGE = struct {
 		int start, end;
 		const float *weights;
-	} RANGE;
+	};
 	static void
 	calc_range(RANGE *range, int dxy, int clip_start, int smax)
 	{
@@ -286,17 +452,6 @@ private:
 		}
 		if ( smax < range->end ) {
 			range->end = smax;
-		}
-	}
-	static unsigned char
-	uc_cast(float x)
-	{
-		if ( x < 0.0f || std::isnan(x) ) {
-			return static_cast<unsigned char>(0);
-		} else if ( 255.0f < x ) {
-			return static_cast<unsigned char>(255);
-		} else {
-			return static_cast<unsigned char>(std::round(x));
 		}
 	}
 	void
@@ -340,8 +495,8 @@ public:
 		}
 	}
 };
-const float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
-const float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
+constexpr float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
+constexpr float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
 static int
 ksa_clip_double(lua_State *L)
 {
@@ -379,3 +534,5 @@ ksa_clip_double(lua_State *L)
 	
 	return 0;
 }
+
+};
