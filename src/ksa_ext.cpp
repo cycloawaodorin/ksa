@@ -13,7 +13,7 @@ using PIXEL_BGRA = struct pixel_bgra {
 	unsigned char a;
 };
 static unsigned char
-uc_cast(const float x)
+uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
 		return static_cast<unsigned char>(0);
@@ -207,8 +207,8 @@ ksa_trsgrad(lua_State *L)
 	std::unique_ptr<Trsgrad> p(new Trsgrad);
 	p->cx = static_cast<float>(lua_tonumber(L, ++i));
 	p->cy = static_cast<float>(lua_tonumber(L, ++i));
-	const float angle = static_cast<float>(lua_tonumber(L, ++i));
-	const float gwidth = static_cast<float>(lua_tonumber(L, ++i));
+	float angle = static_cast<float>(lua_tonumber(L, ++i));
+	float gwidth = static_cast<float>(lua_tonumber(L, ++i));
 	p->a0 = static_cast<float>(lua_tonumber(L, ++i));
 	p->a1 = static_cast<float>(lua_tonumber(L, ++i));
 	
@@ -235,7 +235,7 @@ private:
 	class XY {
 	private:
 		static float
-		sinc(const float x)
+		sinc(float x)
 		{
 			if ( x == 0.0f ) {
 				return 1.0f;
@@ -244,7 +244,7 @@ private:
 			}
 		}
 		static float
-		lanczos3(const float x)
+		lanczos3(float x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
@@ -325,7 +325,7 @@ private:
 		}
 	};
 	void
-	interpolate(const int dx, const int dy)
+	interpolate(int dx, int dy)
 	{
 		XY::RANGE xrange, yrange;
 		x->calc_range(dx, &xrange);
@@ -334,11 +334,11 @@ private:
 		const float *wxs = x->weights[ dx % (x->var) ].get();
 		const float *wys = y->weights[ dy % (y->var) ].get();
 		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
-			const float wy = wys[sy-(yrange.start)+(yrange.skipped)];
+			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
 			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
-				const float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
+				float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
 				const PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
-				const float wxya = wxy*s_px->a;
+				float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
 				g += s_px->g*wxya;
 				r += s_px->r*wxya;
@@ -421,7 +421,7 @@ private:
 		const float *weights;
 	};
 	static void
-	calc_range(RANGE *range, const int dxy, const int clip_start, const int smax)
+	calc_range(RANGE *range, int dxy, int clip_start, int smax)
 	{
 		if ( dxy%2 == 0 ) {
 			range->start = dxy/2 - 3 + clip_start;
@@ -476,7 +476,7 @@ public:
 	PIXEL_BGRA *dest;
 	int sw, sh, dw, dh, ct, cb, cl, cr;
 	static void
-	invoke_interpolate(ClipDouble *p, const int y_start, const int y_end)
+	invoke_interpolate(ClipDouble *p, int y_start, int y_end)
 	{
 		for (int dy=y_start; dy<y_end; dy++) {
 			for (int dx=0; dx<(p->dw); dx++) {
