@@ -57,15 +57,11 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(std::int64_t i)
+	Rational(std::int64_t i) : numerator(i), denominator(1)
 	{
-		numerator = i;
-		denominator = 1;
 	}
-	Rational()
+	Rational() : numerator(0), denominator(1)
 	{
-		numerator = 0;
-		denominator = 1;
 	}
 	std::int64_t
 	get_numerator()
