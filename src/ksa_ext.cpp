@@ -301,13 +301,13 @@ private:
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
 			correction = (reversed_scale-1)/2 + clip_start;
 			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
-		}
-		void
-		set_weights()
-		{
 			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
-			for ( int i=0; i<var; i++ ) {
+		}
+		void
+		set_weights(int start, int end)
+		{
+			for (int i=start; i<end; i++) {
 				Rational c = reversed_scale*i + correction;
 				int s, e;
 				if ( extend ) {
@@ -362,6 +362,12 @@ public:
 		y.reset(new XY());
 	}
 	static void
+	invoke_set_weights(ClipResize *p, int t, int n_th)
+	{
+		p->x->set_weights(( t*(p->x->var) )/n_th, ( (t+1)*(p->x->var) )/n_th);
+		p->y->set_weights(( t*(p->y->var) )/n_th, ( (t+1)*(p->y->var) )/n_th);
+	}
+	static void
 	invoke_interpolate(ClipResize *p, int y_start, int y_end)
 	{
 		for (int dy=y_start; dy<y_end; dy++) {
@@ -389,7 +395,7 @@ ksa_clip_resize(lua_State *L)
 	p->x->clip_end = lua_tointeger(L, ++i);
 	int n_th = lua_tointeger(L, ++i);
 	
-	// パラメータ，重み計算
+	// パラメータ
 	if ( n_th <= 0 ) {
 		n_th += std::thread::hardware_concurrency();
 		if ( n_th <= 0 ) {
@@ -398,11 +404,15 @@ ksa_clip_resize(lua_State *L)
 	}
 	p->x->calc_params();
 	p->y->calc_params();
-	p->x->set_weights();
-	p->y->set_weights();
 	
-	// 本処理
+	// 重み計算，本処理
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
+	for (int t=0; t<n_th; t++) {
+		threads[t].reset(new std::thread(ClipResize::invoke_set_weights, p.get(), t, n_th));
+	}
+	for (int t=0; t<n_th; t++) {
+		threads[t]->join();
+	}
 	for (int t=0; t<n_th; t++) {
 		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th));
 	}
