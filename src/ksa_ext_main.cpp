@@ -2,7 +2,7 @@
 
 #include "ksa_ext.cpp"
 
-static const luaL_Reg ksa_ext[] = {
+static constexpr luaL_Reg ksa_ext[] = {
 #include "functions.c"
 	{ nullptr, nullptr }
 };
