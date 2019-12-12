@@ -63,7 +63,35 @@ end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
-	local dest, dw, dh = obj.getpixeldata()
+	local dest, _dw, _dh = obj.getpixeldata()
+	local flg = false
+	if ( _dw < dw ) then
+		_dw = math.ceil( (dw-_dw)*(sw-cl-cr)/(dw*2) )
+		cl = cl+_dw
+		cr = cr+_dw
+		if ( obj.check0 ) then
+			dw = ksa.round( dw*(sw-cl-cr)/(sw-cl-cr+_dw*2) )
+		else
+			dw = ksa.round( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 )
+		end
+		flg = true
+	end
+	if ( _dh < dh ) then
+		_dh = math.ceil( (dh-_dh)*(sh-ct-cb)/(dh*2) )
+		ct = ct+_dh
+		cb = cb+_dh
+		if ( obj.check0 ) then
+			dh = ksa.round( dh*(sh-ct-cb)/(sh-ct-cb+_dh*2) )
+		else
+			dh = ksa.round( ( sh-(ct+cb) )*obj.track0*obj.track1*1e-4 )
+		end
+		flg = true
+	end
+	if ( flg ) then
+		obj.setoption("drawtarget", "tempbuffer", dw, dh)
+		obj.copybuffer("obj", "tmp")
+		dest, _dw, _dh = obj.getpixeldata()
+	end
 	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)
 else
@@ -81,10 +109,31 @@ local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
 
 local ksa = require("ksa")
 local src, sw, sh = obj.getpixeldata("alloc")
+local dw, dh = (sw-cl-cr)*2, (sh-ct-cb)*2
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
-	obj.setoption("drawtarget", "tempbuffer", (sw-cl-cr)*2, (sh-ct-cb)*2)
+	obj.setoption("drawtarget", "tempbuffer", dw, dh)
 	obj.copybuffer("obj", "tmp")
-	local dest, dw, dh = obj.getpixeldata()
+	local dest, _dw, _dh = obj.getpixeldata()
+	local flg = false
+	if ( _dw < dw ) then
+		_dw = math.ceil( (dw-_dw)/4 )
+		cl = cl+_dw
+		cr = cr+_dw
+		dw = (sw-cl-cr)*2
+		flg = true
+	end
+	if ( _dh < dh ) then
+		_dh = math.ceil( (dh-_dh)/4 )
+		ct = ct+_dh
+		cb = cb+_dh
+		dh = (sh-ct-cb)*2
+		flg = true
+	end
+	if ( flg ) then
+		obj.setoption("drawtarget", "tempbuffer", dw, dh)
+		obj.copybuffer("obj", "tmp")
+		dest, _dw, _dh = obj.getpixeldata()
+	end
 	ksa.clip_double(src, sw, sh, dest, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)
 else
