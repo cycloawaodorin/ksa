@@ -57,8 +57,8 @@ if ( obj.check0 ) then
 	dw = ksa.round(obj.track1)
 	dh = ksa.round(obj.track2)
 else
-	dw = ksa.round( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 )
-	dh = ksa.round( ( sh-(ct+cb) )*obj.track0*obj.track2*1e-4 )
+	dw = ksa.round( ( sw-cl-cr )*obj.track0*obj.track1*1e-4 )
+	dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track2*1e-4 )
 end
 if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 	obj.setoption("drawtarget", "tempbuffer", dw, dh)
@@ -71,7 +71,7 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		if ( obj.check0 ) then
 			dw = ksa.round( dw*(sw-cl-cr)/(sw-cl-cr+clr*2) )
 		else
-			dw = ksa.round( ( sw-(cl+cr) )*obj.track0*obj.track1*1e-4 )
+			dw = ksa.round( ( sw-cl-cr )*obj.track0*obj.track1*1e-4 )
 		end
 	end
 	if ( _dh < dh ) then
@@ -81,13 +81,13 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		if ( obj.check0 ) then
 			dh = ksa.round( dh*(sh-ct-cb)/(sh-ct-cb+ctb*2) )
 		else
-			dh = ksa.round( ( sh-(ct+cb) )*obj.track0*obj.track1*1e-4 )
+			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track1*1e-4 )
 		end
 	end
 	if ( dw ~= _dw or dh ~= _dh ) then
 		obj.setoption("drawtarget", "tempbuffer", dw, dh)
 		obj.copybuffer("obj", "tmp")
-		dest, _dw, _dh = obj.getpixeldata()
+		dest, dw, dh = obj.getpixeldata()
 	end
 	ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
 	obj.putpixeldata(dest)
