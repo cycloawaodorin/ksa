@@ -57,15 +57,11 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(std::int64_t i)
+	Rational(std::int64_t i) : numerator(i), denominator(1)
 	{
-		numerator = i;
-		denominator = 1;
 	}
-	Rational()
+	Rational() : numerator(0), denominator(1)
 	{
-		numerator = 0;
-		denominator = 1;
 	}
 	std::int64_t
 	get_numerator()
@@ -328,16 +324,16 @@ private:
 	interpolate(int dx, int dy)
 	{
 		XY::RANGE xrange, yrange;
-		x->calc_range(dx, &xrange);
-		y->calc_range(dy, &yrange);
+		x.calc_range(dx, &xrange);
+		y.calc_range(dy, &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		const float *wxs = x->weights[ dx % (x->var) ].get();
-		const float *wys = y->weights[ dy % (y->var) ].get();
+		const float *wxs = x.weights[ dx % (x.var) ].get();
+		const float *wys = y.weights[ dy % (y.var) ].get();
 		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
 			float wy = wys[sy-(yrange.start)+(yrange.skipped)];
 			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
 				float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
-				const PIXEL_BGRA *s_px = src + ( sy*(x->src_size)+sx );
+				const PIXEL_BGRA *s_px = src + ( sy*(x.src_size)+sx );
 				float wxya = wxy*s_px->a;
 				b += s_px->b*wxya;
 				g += s_px->g*wxya;
@@ -346,7 +342,7 @@ private:
 				w += wxy;
 			}
 		}
-		PIXEL_BGRA *d_px = dest + ( dy*(x->dest_size)+dx );
+		PIXEL_BGRA *d_px = dest + ( dy*(x.dest_size)+dx );
 		d_px->b = uc_cast(b/a);
 		d_px->g = uc_cast(g/a);
 		d_px->r = uc_cast(r/a);
@@ -355,23 +351,18 @@ private:
 public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
-	std::unique_ptr<XY> x, y;
-	ClipResize()
-	{
-		x.reset(new XY());
-		y.reset(new XY());
-	}
+	XY x, y;
 	static void
 	invoke_set_weights(ClipResize *p, int t, int n_th)
 	{
-		p->x->set_weights(( t*(p->x->var) )/n_th, ( (t+1)*(p->x->var) )/n_th);
-		p->y->set_weights(( t*(p->y->var) )/n_th, ( (t+1)*(p->y->var) )/n_th);
+		p->x.set_weights(( t*(p->x.var) )/n_th, ( (t+1)*(p->x.var) )/n_th);
+		p->y.set_weights(( t*(p->y.var) )/n_th, ( (t+1)*(p->y.var) )/n_th);
 	}
 	static void
 	invoke_interpolate(ClipResize *p, int y_start, int y_end)
 	{
 		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->x->dest_size); dx++) {
+			for (int dx=0; dx<(p->x.dest_size); dx++) {
 				p->interpolate(dx, dy);
 			}
 		}
@@ -384,15 +375,15 @@ ksa_clip_resize(lua_State *L)
 	std::unique_ptr<ClipResize> p(new ClipResize());
 	int i=0;
 	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->x->src_size = lua_tointeger(L, ++i);
-	p->y->src_size = lua_tointeger(L, ++i);
+	p->x.src_size = lua_tointeger(L, ++i);
+	p->y.src_size = lua_tointeger(L, ++i);
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->x->dest_size = lua_tointeger(L, ++i);
-	p->y->dest_size = lua_tointeger(L, ++i);
-	p->y->clip_start = lua_tointeger(L, ++i);
-	p->y->clip_end = lua_tointeger(L, ++i);
-	p->x->clip_start = lua_tointeger(L, ++i);
-	p->x->clip_end = lua_tointeger(L, ++i);
+	p->x.dest_size = lua_tointeger(L, ++i);
+	p->y.dest_size = lua_tointeger(L, ++i);
+	p->y.clip_start = lua_tointeger(L, ++i);
+	p->y.clip_end = lua_tointeger(L, ++i);
+	p->x.clip_start = lua_tointeger(L, ++i);
+	p->x.clip_end = lua_tointeger(L, ++i);
 	int n_th = lua_tointeger(L, ++i);
 	
 	// パラメータ
@@ -402,8 +393,8 @@ ksa_clip_resize(lua_State *L)
 			n_th = 1;
 		}
 	}
-	p->x->calc_params();
-	p->y->calc_params();
+	p->x.calc_params();
+	p->y.calc_params();
 	
 	// 重み計算，本処理
 	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
@@ -414,7 +405,7 @@ ksa_clip_resize(lua_State *L)
 		threads[t]->join();
 	}
 	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y->dest_size) )/n_th, ( (t+1)*(p->y->dest_size) )/n_th));
+		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y.dest_size) )/n_th, ( (t+1)*(p->y.dest_size) )/n_th));
 	}
 	for (int t=0; t<n_th; t++) {
 		threads[t]->join();
