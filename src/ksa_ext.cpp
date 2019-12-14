@@ -1,5 +1,3 @@
-#include <memory>
-#include <thread>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
@@ -320,15 +318,19 @@ public:
 	PIXEL_BGRA *dest;
 	XY x, y;
 	static void
-	invoke_set_weights(ClipResize *p, int t, int n_th)
+	invoke_set_weights(void *data, std::size_t t, std::size_t n_th)
 	{
+		ClipResize *p = static_cast<ClipResize *>(data);
 		p->x.set_weights(( t*(p->x.var) )/n_th, ( (t+1)*(p->x.var) )/n_th);
 		p->y.set_weights(( t*(p->y.var) )/n_th, ( (t+1)*(p->y.var) )/n_th);
 	}
 	static void
-	invoke_interpolate(ClipResize *p, int y_start, int y_end)
+	invoke_interpolate(void *data, std::size_t t, std::size_t n_th)
 	{
-		for (int dy=y_start; dy<y_end; dy++) {
+		ClipResize *p = static_cast<ClipResize *>(data);
+		std::size_t y_start = ( t*(p->y.dest_size) )/n_th;
+		std::size_t y_end = ( (t+1)*(p->y.dest_size) )/n_th;
+		for (std::size_t dy=y_start; dy<y_end; dy++) {
 			for (int dx=0; dx<(p->x.dest_size); dx++) {
 				p->interpolate(dx, dy);
 			}
@@ -364,19 +366,8 @@ ksa_clip_resize(lua_State *L)
 	p->y.calc_params();
 	
 	// 重み計算，本処理
-	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
-	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(ClipResize::invoke_set_weights, p.get(), t, n_th));
-	}
-	for (int t=0; t<n_th; t++) {
-		threads[t]->join();
-	}
-	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(ClipResize::invoke_interpolate, p.get(), ( t*(p->y.dest_size) )/n_th, ( (t+1)*(p->y.dest_size) )/n_th));
-	}
-	for (int t=0; t<n_th; t++) {
-		threads[t]->join();
-	}
+	TP->invoke(ClipResize::invoke_set_weights, static_cast<void *>(p.get()), n_th);
+	TP->invoke(ClipResize::invoke_interpolate, static_cast<void *>(p.get()), n_th);
 	
 	return 0;
 }
