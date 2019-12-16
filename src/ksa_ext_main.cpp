@@ -12,16 +12,11 @@ class ThreadPool {
 private:
 	class Thread {
 	public:
+		enum class State { NotInitialized, JobItemPrepared, JobFinished };
+		ThreadPool *pool;
 		std::thread thread;
-		std::mutex mx;
-		std::condition_variable cv;
-		std::function<void(void *, std::size_t, std::size_t)> func;
-		void *data;
-		std::size_t n;
-		bool terminate;
-		bool ready;
-		bool finished;
-		Thread() : terminate(false), ready(false), finished(false)
+		State state;
+		Thread() : state(State::NotInitialized)
 		{
 		}
 		void
@@ -29,70 +24,83 @@ private:
 		{
 			for (;;) {
 				{
-					std::unique_lock<std::mutex> lk(mx);
-					cv.wait(lk, [&]{ return ready; });
+					std::unique_lock<std::mutex> lk(pool->mx);
+					pool->cv.wait(lk, [&]{ return (state==State::JobItemPrepared); });
 				}
-				if ( terminate ) {
+				if ( pool->terminate ) {
 					return;
-				} else {
-					func(data, id, n);
 				}
+				pool->func(pool->data, id, pool->n);
 				{
-					std::lock_guard<std::mutex> lk(mx);
-					ready = false;
-					finished = true;
+					std::lock_guard<std::mutex> lk(pool->mx);
+					state = State::JobFinished;
 				}
-				cv.notify_all();
+				pool->cv.notify_all();
 			}
 		}
 	};
 	std::unique_ptr<Thread[]> threads;
 	std::size_t size;
+	std::mutex mx;
+	std::condition_variable cv;
+	std::function<void(void *, std::size_t, std::size_t)> func;
+	void *data;
+	std::size_t n;
+	bool terminate;
 public:
-	ThreadPool() : size(std::thread::hardware_concurrency())
+	ThreadPool() : size(std::thread::hardware_concurrency()), terminate(false)
 	{
 		threads.reset(new Thread[size]);
 		for (std::size_t i=0; i<size; i++) {
+			threads[i].pool = this;
 			threads[i].thread = std::thread(Thread::listen, &threads[i], i);
 		}
 	}
 	~ThreadPool()
 	{
-		for (std::size_t i=0; i<size; i++) {
-			{
-				std::lock_guard<std::mutex> lk(threads[i].mx);
-				threads[i].ready = true;
-				threads[i].terminate = true;
+		{
+			std::lock_guard<std::mutex> lk(mx);
+			for (std::size_t i=0; i<size; i++) {
+				threads[i].state = Thread::State::JobItemPrepared;
 			}
-			threads[i].cv.notify_all();
+			terminate = true;
+		}
+		cv.notify_all();
+		for (std::size_t i=0; i<size; i++) {
 			threads[i].thread.detach();
 		}
 	}
 	
 	void
-	invoke(std::function<void(void *, std::size_t, std::size_t)> f, void *data, std::size_t n)
+	invoke(std::function<void(void *, std::size_t, std::size_t)> f, void *p, std::size_t m)
 	{
-		if ( size < n ) {
+		func = f;
+		data = p;
+		if ( size < m ) {
 			n = size;
+		} else {
+			n = m;
 		}
-		for (std::size_t i=0; i<n; i++) {
-			threads[i].func = f;
-			threads[i].data = data;
-			threads[i].n = n;
-			{
-				std::lock_guard<std::mutex> lk(threads[i].mx);
-				threads[i].ready = true;
-				threads[i].finished = false;
+		{
+			std::lock_guard<std::mutex> lk(mx);
+			for (std::size_t i=0; i<n; i++) {
+				threads[i].state = Thread::State::JobItemPrepared;
 			}
-			threads[i].cv.notify_all();
 		}
-		for (std::size_t i=0; i<n; i++) {
-			std::unique_lock<std::mutex> lk(threads[i].mx);
-			threads[i].cv.wait(lk, [&]{return threads[i].finished;});
-		}
+		cv.notify_all();
+		std::unique_lock<std::mutex> lk(mx);
+		cv.wait(lk, [&]{
+			for (std::size_t i=0; i<n; i++) {
+				if ( threads[i].state != Thread::State::JobFinished ) {
+					return false;
+				}
+			}
+			return true;
+		});
 	}
 };
 static std::unique_ptr<ThreadPool> TP;
+
 };
 
 #include "ksa_ext.cpp"
