@@ -1,7 +1,5 @@
 local ksa = require("ksa_ext")
 
-setmetatable(ksa, {__gc=ksa.exit})
-
 ksa.drawrect = function(x0, y0, x1, y1, alpha, u0, v0, u1, v1)
 	if ( u0 ) then
 		obj.drawpoly(x0,y0,0, x1,y0,0, x1,y1,0, x0,y1,0, u0,v0, u1,v0, u1,v1, u0,v1, alpha)

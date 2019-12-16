@@ -5,14 +5,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
-#include <windows.h>
-#include <stdlib.h>
-#   define MyOutputDebugString( str, ... ) \
-      { \
-        TCHAR __odstr[256]; \
-        sprintf( __odstr, str, __VA_ARGS__ ); \
-        OutputDebugString( __odstr ); \
-      }
 
 namespace KSA {
 
@@ -101,19 +93,12 @@ public:
 	}
 };
 static std::unique_ptr<ThreadPool> TP;
-static int
-ksa_exit(lua_State *L)
-{
-	TP.reset(nullptr);
-	return 0;
-}
 };
 
 #include "ksa_ext.cpp"
 
 static constexpr luaL_Reg ksa_ext[] = {
 #include "functions.c"
-	{ "exit", KSA::ksa_exit },
 	{ nullptr, nullptr }
 };
 
