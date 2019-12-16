@@ -10,33 +10,13 @@ namespace KSA {
 
 class ThreadPool {
 private:
+	enum class State { NotInitialized, JobItemPrepared, JobFinished };
 	class Thread {
 	public:
-		enum class State { NotInitialized, JobItemPrepared, JobFinished };
-		ThreadPool *pool;
 		std::thread thread;
 		State state;
 		Thread() : state(State::NotInitialized)
 		{
-		}
-		void
-		listen(const std::size_t id)
-		{
-			for (;;) {
-				{
-					std::unique_lock<std::mutex> lk(pool->mx);
-					pool->cv.wait(lk, [&]{ return (state==State::JobItemPrepared); });
-				}
-				if ( pool->terminate ) {
-					return;
-				}
-				pool->func(pool->data, id, pool->n);
-				{
-					std::lock_guard<std::mutex> lk(pool->mx);
-					state = State::JobFinished;
-				}
-				pool->cv.notify_all();
-			}
 		}
 	};
 	std::unique_ptr<Thread[]> threads;
@@ -47,13 +27,31 @@ private:
 	void *data;
 	std::size_t n;
 	bool terminate;
+	void
+	listen(Thread *th, const std::size_t id)
+	{
+		for (;;) {
+			{
+				std::unique_lock<std::mutex> lk(mx);
+				cv.wait(lk, [&]{ return (th->state==State::JobItemPrepared); });
+			}
+			if ( terminate ) {
+				return;
+			}
+			func(data, id, n);
+			{
+				std::lock_guard<std::mutex> lk(mx);
+				th->state = State::JobFinished;
+			}
+			cv.notify_all();
+		}
+	}
 public:
 	ThreadPool() : size(std::thread::hardware_concurrency()), terminate(false)
 	{
 		threads.reset(new Thread[size]);
 		for (std::size_t i=0; i<size; i++) {
-			threads[i].pool = this;
-			threads[i].thread = std::thread(Thread::listen, &threads[i], i);
+			threads[i].thread = std::thread(listen, this, &threads[i], i);
 		}
 	}
 	~ThreadPool()
@@ -61,7 +59,7 @@ public:
 		{
 			std::lock_guard<std::mutex> lk(mx);
 			for (std::size_t i=0; i<size; i++) {
-				threads[i].state = Thread::State::JobItemPrepared;
+				threads[i].state = State::JobItemPrepared;
 			}
 			terminate = true;
 		}
@@ -84,14 +82,14 @@ public:
 		{
 			std::lock_guard<std::mutex> lk(mx);
 			for (std::size_t i=0; i<n; i++) {
-				threads[i].state = Thread::State::JobItemPrepared;
+				threads[i].state = State::JobItemPrepared;
 			}
 		}
 		cv.notify_all();
 		std::unique_lock<std::mutex> lk(mx);
 		cv.wait(lk, [&]{
 			for (std::size_t i=0; i<n; i++) {
-				if ( threads[i].state != Thread::State::JobFinished ) {
+				if ( threads[i].state != State::JobFinished ) {
 					return false;
 				}
 			}
