@@ -15,14 +15,14 @@ private:
 	public:
 		std::thread thread;
 		State state;
+		std::mutex mx;
+		std::condition_variable cv;
 		Thread() : state(State::NotInitialized)
 		{
 		}
 	};
 	std::unique_ptr<Thread[]> threads;
 	std::size_t size;
-	std::mutex mx;
-	std::condition_variable cv;
 	std::function<void(void *, std::size_t, std::size_t)> func;
 	void *data;
 	std::size_t n;
@@ -32,18 +32,18 @@ private:
 	{
 		for (;;) {
 			{
-				std::unique_lock<std::mutex> lk(mx);
-				cv.wait(lk, [&]{ return (th->state==State::JobItemPrepared); });
+				std::unique_lock<std::mutex> lk(th->mx);
+				th->cv.wait(lk, [&]{ return (th->state==State::JobItemPrepared); });
 			}
 			if ( terminate ) {
 				return;
 			}
 			func(data, id, n);
 			{
-				std::lock_guard<std::mutex> lk(mx);
+				std::lock_guard<std::mutex> lk(th->mx);
 				th->state = State::JobFinished;
 			}
-			cv.notify_all();
+			th->cv.notify_one();
 		}
 	}
 public:
@@ -57,13 +57,16 @@ public:
 	~ThreadPool()
 	{
 		{
-			std::lock_guard<std::mutex> lk(mx);
 			for (std::size_t i=0; i<size; i++) {
+				threads[i].mx.lock();
 				threads[i].state = State::JobItemPrepared;
 			}
 			terminate = true;
+			for (std::size_t i=0; i<size; i++) {
+				threads[i].mx.unlock();
+				threads[i].cv.notify_all();
+			}
 		}
-		cv.notify_all();
 		for (std::size_t i=0; i<size; i++) {
 			threads[i].thread.detach();
 		}
@@ -79,22 +82,17 @@ public:
 		} else {
 			n = m;
 		}
-		{
-			std::lock_guard<std::mutex> lk(mx);
-			for (std::size_t i=0; i<n; i++) {
+		for (std::size_t i=0; i<n; i++) {
+			{
+				std::lock_guard<std::mutex> lk(threads[i].mx);
 				threads[i].state = State::JobItemPrepared;
 			}
+			threads[i].cv.notify_one();
 		}
-		cv.notify_all();
-		std::unique_lock<std::mutex> lk(mx);
-		cv.wait(lk, [&]{
-			for (std::size_t i=0; i<n; i++) {
-				if ( threads[i].state != State::JobFinished ) {
-					return false;
-				}
-			}
-			return true;
-		});
+		for (std::size_t i=0; i<n; i++) {
+			std::unique_lock<std::mutex> lk(threads[i].mx);
+			threads[i].cv.wait(lk, [&]{ return (threads[i].state==State::JobFinished); });
+		}
 	}
 };
 static std::unique_ptr<ThreadPool> TP;
