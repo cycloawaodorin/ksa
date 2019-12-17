@@ -1,6 +1,8 @@
+#include <memory>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+#include <tbb/tbb.h>
 
 namespace KSA {
 
@@ -317,25 +319,38 @@ public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
 	XY x, y;
-	static void
-	invoke_set_weights(void *data, std::size_t t, std::size_t n_th)
-	{
-		ClipResize *p = static_cast<ClipResize *>(data);
-		p->x.set_weights(( t*(p->x.var) )/n_th, ( (t+1)*(p->x.var) )/n_th);
-		p->y.set_weights(( t*(p->y.var) )/n_th, ( (t+1)*(p->y.var) )/n_th);
-	}
-	static void
-	invoke_interpolate(void *data, std::size_t t, std::size_t n_th)
-	{
-		ClipResize *p = static_cast<ClipResize *>(data);
-		std::size_t y_start = ( t*(p->y.dest_size) )/n_th;
-		std::size_t y_end = ( (t+1)*(p->y.dest_size) )/n_th;
-		for (std::size_t dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->x.dest_size); dx++) {
-				p->interpolate(dx, dy);
+	class InvokeSetWeights {
+	private:
+		ClipResize::XY *const xy_data;
+	public:
+		void
+		operator()( const tbb::blocked_range<int>& r )
+		const {
+			ClipResize::XY *xy = xy_data;
+			xy->set_weights(r.begin(), r.end());
+		}
+		InvokeSetWeights( ClipResize::XY *data ) : xy_data(data)
+		{
+		}
+	};
+	class InvokeInterpolate {
+	private:
+		ClipResize *const cr_data;
+	public:
+		void
+		operator()( const tbb::blocked_range<size_t>& r )
+		const {
+			ClipResize *p = cr_data;
+			for (std::size_t dy=r.begin(); dy<r.end(); dy++) {
+				for (int dx=0; dx<(p->x.dest_size); dx++) {
+					p->interpolate(dx, dy);
+				}
 			}
 		}
-	}
+		InvokeInterpolate( ClipResize *data ) : cr_data(data)
+		{
+		}
+	};
 };
 static int
 ksa_clip_resize(lua_State *L)
@@ -353,21 +368,15 @@ ksa_clip_resize(lua_State *L)
 	p->y.clip_end = lua_tointeger(L, ++i);
 	p->x.clip_start = lua_tointeger(L, ++i);
 	p->x.clip_end = lua_tointeger(L, ++i);
-	int n_th = lua_tointeger(L, ++i);
 	
 	// パラメータ
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
 	p->x.calc_params();
 	p->y.calc_params();
 	
 	// 重み計算，本処理
-	TP->invoke(ClipResize::invoke_set_weights, static_cast<void *>(p.get()), n_th);
-	TP->invoke(ClipResize::invoke_interpolate, static_cast<void *>(p.get()), n_th);
+	parallel_for(tbb::blocked_range<int>(0, p->x.var), ClipResize::InvokeSetWeights(&(p->x)));
+	parallel_for(tbb::blocked_range<int>(0, p->y.var), ClipResize::InvokeSetWeights(&(p->y)));
+	parallel_for(tbb::blocked_range<size_t>(0, p->y.dest_size), ClipResize::InvokeInterpolate(p.get()));
 	
 	return 0;
 }
@@ -434,15 +443,24 @@ public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
 	int sw, sh, dw, dh, ct, cb, cl, cr;
-	static void
-	invoke_interpolate(ClipDouble *p, int y_start, int y_end)
-	{
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->dw); dx++) {
-				p->interpolate(dx, dy);
+	class InvokeInterpolate {
+	private:
+		ClipDouble *const cd_data;
+	public:
+		void
+		operator()( const tbb::blocked_range<size_t>& r )
+		const {
+			ClipDouble *p = cd_data;
+			for (std::size_t dy=r.begin(); dy<r.end(); dy++) {
+				for (int dx=0; dx<(p->dw); dx++) {
+					p->interpolate(dx, dy);
+				}
 			}
 		}
-	}
+		InvokeInterpolate( ClipDouble *data ) : cd_data(data)
+		{
+		}
+	};
 };
 constexpr float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
 constexpr float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
@@ -460,26 +478,13 @@ ksa_clip_double(lua_State *L)
 	p->cb = lua_tointeger(L, ++i);
 	p->cl = lua_tointeger(L, ++i);
 	p->cr = lua_tointeger(L, ++i);
-	int n_th = lua_tointeger(L, ++i);
 	
 	// パラメータ計算
 	p->dw = (p->sw - p->cl - p->cr)*2;
 	p->dh = (p->sh - p->ct - p->cb)*2;
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
 	
 	// 本処理
-	std::unique_ptr<std::unique_ptr<std::thread>[]> threads(new std::unique_ptr<std::thread>[n_th]);
-	for (int t=0; t<n_th; t++) {
-		threads[t].reset(new std::thread(ClipDouble::invoke_interpolate, p.get(), ( t*(p->dh) )/n_th, ( (t+1)*(p->dh) )/n_th));
-	}
-	for (int t=0; t<n_th; t++) {
-		threads[t]->join();
-	}
+	parallel_for(tbb::blocked_range<size_t>(0, p->dh), ClipDouble::InvokeInterpolate(p.get()));
 	
 	return 0;
 }

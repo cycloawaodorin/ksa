@@ -5,7 +5,7 @@ CXXFLAGS = -Wall -Wextra -Wdeprecated-declarations -Wpointer-arith -Wwrite-strin
 INCLUDES = 
 LD = g++
 LDFLAGS = -shared -Wl,--dll,--enable-stdcall-fixup
-LIBS = lua/lua51.dll -static -lstdc++ -lgcc -lwinpthread
+LIBS = lua/lua51.dll -L/mingw32/lib/ -ltbb.dll
 RM = rm -f
 SH = bash
 
