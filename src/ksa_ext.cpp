@@ -2,6 +2,7 @@
 #include <thread>
 #include <cmath>
 #include <cstdint>
+#include <numeric>
 
 namespace KSA {
 
@@ -26,29 +27,10 @@ uc_cast(float x)
 class Rational {
 private:
 	std::int64_t numerator, denominator;
-	static std::int64_t
-	gcd(std::int64_t a, std::int64_t b)
-	{
-		if ( a < b ) {
-			if ( a == 0 ) {
-				return b;
-			} else {
-				b = b%a;
-			}
-		}
-		while ( b != 0 ) {
-			a = a%b;
-			if ( a == 0 ) {
-				return b;
-			}
-			b = b%a;
-		}
-		return a;
-	}
 public:
 	Rational(std::int64_t num, std::int64_t den)
 	{
-		std::int64_t c = gcd(std::abs(num), std::abs(den));
+		std::int64_t c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
 			numerator = -num/c;
 			denominator = -den/c;
@@ -76,7 +58,7 @@ public:
 	Rational
 	operator +(const Rational &other)
 	const {
-		std::int64_t c = gcd(denominator, other.denominator);
+		std::int64_t c = std::gcd(denominator, other.denominator);
 		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
@@ -88,7 +70,7 @@ public:
 	Rational
 	operator -(const Rational &other)
 	const {
-		std::int64_t c = gcd(denominator, other.denominator);
+		std::int64_t c = std::gcd(denominator, other.denominator);
 		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
@@ -100,27 +82,27 @@ public:
 	Rational
 	operator *(const Rational &other)
 	const {
-		std::int64_t ca = gcd(std::abs(numerator), other.denominator);
-		std::int64_t cb = gcd(denominator, std::abs(other.numerator));
+		std::int64_t ca = std::gcd(std::abs(numerator), other.denominator);
+		std::int64_t cb = std::gcd(denominator, std::abs(other.numerator));
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
 	operator *(std::int64_t other)
 	const {
-		std::int64_t c = gcd(std::abs(other), denominator);
+		std::int64_t c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
 	}
 	Rational
 	operator /(const Rational &other)
 	const {
-		std::int64_t ca = gcd(std::abs(numerator), std::abs(other.numerator));
-		std::int64_t cb = gcd(denominator, other.denominator);
+		std::int64_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
+		std::int64_t cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
 	operator /(std::int64_t other)
 	const {
-		std::int64_t c = gcd(std::abs(numerator), std::abs(other));
+		std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
 	Rational
@@ -244,21 +226,6 @@ private:
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
-		static int
-		gcd(int a, int b)
-		{
-			if ( a < b ) {
-				b = b%a;
-			}
-			while ( b != 0 ) {
-				a = a%b;
-				if ( a == 0 ) {
-					return b;
-				}
-				b = b%a;
-			}
-			return a;
-		}
 	public:
 		using RANGE = struct {
 			int start, end;
@@ -297,7 +264,7 @@ private:
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
 			correction = (reversed_scale-1)/2 + clip_start;
 			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
-			var = (dest_size)/gcd(dest_size, src_size-clip_start-clip_end);
+			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
 			weights.reset(new std::unique_ptr<float[]>[var]);
 		}
 		void
