@@ -4,6 +4,7 @@
 #include <numeric>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 
 namespace KSA {
 
@@ -139,6 +140,19 @@ public:
 		return( static_cast<float>(numerator) / static_cast<float>(denominator) );
 	}
 };
+
+template <class T>
+static void
+parallel_do(void (*f)(T*, int, int), T *p, int n)
+{
+	std::unique_ptr<std::thread[]> threads(new std::thread[n]);
+	for (int i=0; i<n; i++) {
+		threads[i] = std::thread(f, p, i, n);
+	}
+	for (int i=0; i<n; i++) {
+		threads[i].join();
+	}
+}
 
 #include "ksa_ext.cpp"
 
