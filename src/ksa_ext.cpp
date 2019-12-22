@@ -1,9 +1,9 @@
 constexpr float PI = 3.141592653589793f;
 using PIXEL_BGRA = struct pixel_bgra {
-	unsigned char b;
-	unsigned char g;
-	unsigned char r;
-	unsigned char a;
+	alignas(1) unsigned char b;
+	alignas(1) unsigned char g;
+	alignas(1) unsigned char r;
+	alignas(1) unsigned char a;
 };
 static unsigned char
 uc_cast(float x)
@@ -88,14 +88,12 @@ private:
 		}
 	public:
 		using RANGE = struct {
-			int start, end;
+			int start, end, skipped;
 			Rational center;
-			int skipped;
 		};
-		int src_size, dest_size, clip_start, clip_end;
+		int src_size, dest_size, clip_start, clip_end, var;
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
-		int var;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
 		calc_range(int dest, RANGE *range)
