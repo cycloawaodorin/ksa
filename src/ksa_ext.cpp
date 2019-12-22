@@ -304,8 +304,14 @@ public:
 		}
 	}
 };
-constexpr float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
-constexpr float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
+constexpr float ClipDouble::WEIGHTS_E[] = {
+	0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f,
+	0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f
+};
+constexpr float ClipDouble::WEIGHTS_O[] = {
+	0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f,
+	0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f
+};
 static int
 ksa_clip_double(lua_State *L)
 {
@@ -334,6 +340,96 @@ ksa_clip_double(lua_State *L)
 	
 	// 本処理
 	parallel_do(ClipDouble::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
+
+class DiSpatial {
+private:
+	void
+	interpolate(int x, int y)
+	{
+		int start=y-5, end=y+6, skip=0;
+		if ( start<0 ) {
+			if ( top ) {
+				skip = -start+1;
+			} else {
+				skip = -start;
+			}
+		}
+		if ( h<end ) {
+			end = h;
+		}
+		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		for (int sy=start+skip; sy<end; sy+=2) {
+			float wy = WEIGHTS[(sy-start)>>1];
+			const PIXEL_BGRA *s_px = src+(sy*w+x);
+			float wya = wy*s_px->a;
+			b += s_px->b*wya;
+			g += s_px->g*wya;
+			r += s_px->r*wya;
+			a += wya;
+			ww += wy;
+		}
+		PIXEL_BGRA *d_px = dest+(y*w+x);
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/ww);
+	}
+public:
+	static const float WEIGHTS[6];
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *src;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate(DiSpatial *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		}
+	}
+};
+constexpr float DiSpatial::WEIGHTS[] = {
+	0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
+	0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
+};
+static int
+ksa_deinterlace_spatial(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiSpatial> p(new DiSpatial());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = lua_tointeger(L, ++i);
+	
+	// パラメータ計算
+	if ( n_th <= 0 ) {
+		n_th += std::thread::hardware_concurrency();
+		if ( n_th <= 0 ) {
+			n_th = 1;
+		}
+	}
+	
+	// 本処理
+	parallel_do(DiSpatial::invoke_interpolate, p.get(), n_th);
 	
 	return 0;
 }

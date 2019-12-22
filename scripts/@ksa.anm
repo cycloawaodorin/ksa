@@ -134,3 +134,32 @@ else
 	obj.setoption("drawtarget", "tempbuffer", 1, 1)
 	obj.copybuffer("obj", "tmp")
 end
+
+@インターレース解除
+--track0:解除法,0,2,0,1
+--track1:BFF/TFF,0,1,1,1
+--track2:スレッド数,-128,128,-1,1
+--file:
+
+local ksa = require("ksa")
+local dest, w, h = obj.getpixeldata("alloc")
+
+if ( obj.track0 == 0 ) then
+	obj.load("movie", file, (obj.frame-0.5)/obj.framerate)
+	local pr, _w, _h = obj.getpixeldata("alloc")
+	if ( (w~=_w) or (h~=_h) ) then
+		dest, w, h = obj.getpixeldata("alloc")
+	end
+	ksa.deinterlace_spatial(dest, pr, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+else
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+	local bf, _w, _h = obj.getpixeldata("alloc")
+	if ( (w~=_w) or (h~=_h) ) then
+		dest, w, h = obj.getpixeldata("alloc")
+	end
+	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
+	local af, _w, _h = obj.getpixeldata("alloc")
+	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+end
+
+obj.putpixeldata(dest)
