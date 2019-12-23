@@ -344,6 +344,44 @@ ksa_clip_double(lua_State *L)
 	return 0;
 }
 
+class DiNN {
+public:
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *src;
+	int w, h;
+	bool top;
+	void
+	doubling()
+	{
+		if ( top ) {
+			for (int y=0; y<h; y+=2) {
+				memcpy(dest+(y*w), src+((y+1)*w), sizeof(PIXEL_BGRA)*w);
+			}
+		} else {
+			for (int y=1; y<h; y+=2) {
+				memcpy(dest+(y*w), src+((y-1)*w), sizeof(PIXEL_BGRA)*w);
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_nn(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiNN> p(new DiNN());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	
+	// 本処理
+	p->doubling();
+	
+	return 0;
+}
+
 class DiSpatial {
 private:
 	void
