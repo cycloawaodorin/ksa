@@ -154,6 +154,36 @@ parallel_do(void (*f)(T*, int, int), T *p, int n)
 	}
 }
 
+constexpr float PI = 3.141592653589793f;
+using PIXEL_BGRA = struct pixel_bgra {
+	alignas(1) unsigned char b;
+	alignas(1) unsigned char g;
+	alignas(1) unsigned char r;
+	alignas(1) unsigned char a;
+};
+static unsigned char
+uc_cast(float x)
+{
+	if ( x < 0.0f || std::isnan(x) ) {
+		return static_cast<unsigned char>(0);
+	} else if ( 255.0f < x ) {
+		return static_cast<unsigned char>(255);
+	} else {
+		return static_cast<unsigned char>(std::round(x));
+	}
+}
+static int
+n_th_correction(int n_th)
+{
+	if ( n_th <= 0 ) {
+		n_th += std::thread::hardware_concurrency();
+		if ( n_th <= 0 ) {
+			n_th = 1;
+		}
+	}
+	return n_th;
+}
+
 #include "ksa_ext.cpp"
 
 };
