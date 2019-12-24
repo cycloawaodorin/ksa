@@ -136,7 +136,7 @@ else
 end
 
 @インターレース解除
---track0:解除法,0,3,0,1
+--track0:解除法,0,4,0,1
 --track1:BFF/TFF,0,1,1,1
 --track2:スレッド数,-128,128,-1,1
 --file:
@@ -147,22 +147,21 @@ local dest, w, h = obj.getpixeldata("alloc")
 
 if ( obj.track0 == 1 ) then -- 無補間
 	local pr, _w, _h = obj.getpixeldata("alloc")
-	if ( (w~=_w) or (h~=_h) ) then
-		dest, w, h = obj.getpixeldata("alloc")
-	end
 	ksa.deinterlace_nn(dest, pr, w, h, XOR(obj.frame%2, obj.track1))
-elseif ( obj.track0 == 2 ) then -- 空間方向補間
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+elseif ( obj.track0 == 2 ) then -- 適応補間
+	local present, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+	local past, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
+	local future, _w, _h = obj.getpixeldata("alloc")
+	ksa.deinterlace_adaptive(dest, past, present, future, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+elseif ( obj.track0 == 3 ) then -- 空間方向補間
 	local pr, _w, _h = obj.getpixeldata("alloc")
-	if ( (w~=_w) or (h~=_h) ) then
-		dest, w, h = obj.getpixeldata("alloc")
-	end
 	ksa.deinterlace_spatial(dest, pr, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
-elseif ( obj.track0 == 3 ) then -- 時間方向補間
+elseif ( obj.track0 == 4 ) then -- 時間方向補間
 	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
 	local bf, _w, _h = obj.getpixeldata("alloc")
-	if ( (w~=_w) or (h~=_h) ) then
-		dest, w, h = obj.getpixeldata("alloc")
-	end
 	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
 	local af, _w, _h = obj.getpixeldata("alloc")
 	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1), obj.track2)

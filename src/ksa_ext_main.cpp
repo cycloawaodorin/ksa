@@ -183,6 +183,15 @@ n_th_correction(int n_th)
 	}
 	return n_th;
 }
+static float
+rgb_distance(const PIXEL_BGRA &a, const PIXEL_BGRA &b)
+{
+	return std::hypot(
+		static_cast<float>(a.b)-static_cast<float>(b.b),
+		static_cast<float>(a.g)-static_cast<float>(b.g),
+		static_cast<float>(a.r)-static_cast<float>(b.r)
+	);
+}
 
 #include "ksa_ext.cpp"
 

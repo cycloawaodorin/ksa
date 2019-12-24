@@ -499,3 +499,119 @@ ksa_deinterlace_temporal(lua_State *L)
 	
 	return 0;
 }
+
+class DiAdaptive {
+private:
+	void
+	interpolate_spatial(int x, int y)
+	{
+		int start=y-5, end=y+6, skip=0;
+		if ( start<0 ) {
+			if ( top ) {
+				skip = -start+1;
+			} else {
+				skip = -start;
+			}
+		}
+		if ( h<end ) {
+			end = h;
+		}
+		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		for (int sy=start+skip; sy<end; sy+=2) {
+			float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
+			const PIXEL_BGRA *s_px = present+(sy*w+x);
+			float wya = wy*s_px->a;
+			b += s_px->b*wya;
+			g += s_px->g*wya;
+			r += s_px->r*wya;
+			a += wya;
+			ww += wy;
+		}
+		PIXEL_BGRA *d_px = dest+(y*w+x);
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/ww);
+	}
+	void
+	interpolate_temporal(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d = dest+idx;
+		const PIXEL_BGRA *px_p = past+idx, *px_f = future+idx;
+		if ( px_p->a == 255 && px_f->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (px_p->b>>1) + (px_f->b>>1) + ((px_p->b&1)&(px_f->b&1)) );
+			px_d->g = static_cast<unsigned char>( (px_p->g>>1) + (px_f->g>>1) + ((px_p->g&1)&(px_f->g&1)) );
+			px_d->r = static_cast<unsigned char>( (px_p->r>>1) + (px_f->r>>1) + ((px_p->r&1)&(px_f->r&1)) );
+			px_d->a = static_cast<unsigned char>(255);
+		} else {
+			float pa = px_p->a, fa = px_f->a;
+			float pafa = pa+fa;
+			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
+			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
+			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
+			px_d->a = static_cast<unsigned char>( (px_p->a>>1) + (px_f->a>>1) + ((px_p->a&1)&(px_f->a&1)) );
+		}
+	}
+	void
+	interpolate(int x, int y)
+	{
+		int yu=y-1, yd=y+1;
+		if ( yu < 0 ) {
+			yu = 3;
+		}
+		if ( h <= yd ) {
+			yd = y-3;
+		}
+		if ( rgb_distance(present[yu*w+x], present[yd*w+x]) < rgb_distance(past[y*w+x], future[y*w+x]) ) {
+			interpolate_spatial(x, y);
+		} else {
+			interpolate_temporal(x, y);
+		}
+	}
+public:
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *past, *present, *future;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate(DiAdaptive *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_adaptive(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiAdaptive> p(new DiAdaptive());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->present = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
+	
+	// 本処理
+	parallel_do(DiAdaptive::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
+
