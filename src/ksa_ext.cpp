@@ -471,3 +471,78 @@ ksa_deinterlace_spatial(lua_State *L)
 	
 	return 0;
 }
+
+class DiTemporal {
+private:
+	void
+	interpolate(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d = dest+idx;
+		const PIXEL_BGRA *px_b = before+idx, *px_a = after+idx;
+		if ( px_b->a == 255 && px_a->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( ( (px_b->b>>1) + (px_a->b>>1) ) | ((px_b->b&1)&(px_a->b&1)) );
+			px_d->g = static_cast<unsigned char>( ( (px_b->g>>1) + (px_a->g>>1) ) | ((px_b->g&1)&(px_a->g&1)) );
+			px_d->r = static_cast<unsigned char>( ( (px_b->r>>1) + (px_a->r>>1) ) | ((px_b->r&1)&(px_a->r&1)) );
+			px_d->a = static_cast<unsigned char>(255);
+		} else {
+			float ba = px_b->a, aa = px_a->a;
+			float baaa = ba+aa;
+			px_d->b = uc_cast( ( px_b->b*ba + px_a->b*aa ) / baaa );
+			px_d->g = uc_cast( ( px_b->g*ba + px_a->g*aa ) / baaa );
+			px_d->r = uc_cast( ( px_b->r*ba + px_a->r*aa ) / baaa );
+			px_d->a = static_cast<unsigned char>( ( (px_b->a>>1) + (px_a->a>>1) ) | ((px_b->a&1)&(px_a->a&1)) );
+		}
+	}
+public:
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *before, *after;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate(DiTemporal *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_temporal(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiTemporal> p(new DiTemporal());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->before = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->after = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = lua_tointeger(L, ++i);
+	
+	// パラメータ計算
+	if ( n_th <= 0 ) {
+		n_th += std::thread::hardware_concurrency();
+		if ( n_th <= 0 ) {
+			n_th = 1;
+		}
+	}
+	
+	// 本処理
+	parallel_do(DiTemporal::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
