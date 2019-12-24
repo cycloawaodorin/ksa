@@ -481,9 +481,9 @@ private:
 		PIXEL_BGRA *px_d = dest+idx;
 		const PIXEL_BGRA *px_b = before+idx, *px_a = after+idx;
 		if ( px_b->a == 255 && px_a->a == 255 ) {
-			px_d->b = static_cast<unsigned char>( ( (px_b->b>>1) + (px_a->b>>1) ) | ((px_b->b&1)&(px_a->b&1)) );
-			px_d->g = static_cast<unsigned char>( ( (px_b->g>>1) + (px_a->g>>1) ) | ((px_b->g&1)&(px_a->g&1)) );
-			px_d->r = static_cast<unsigned char>( ( (px_b->r>>1) + (px_a->r>>1) ) | ((px_b->r&1)&(px_a->r&1)) );
+			px_d->b = static_cast<unsigned char>( (px_b->b>>1) + (px_a->b>>1) + ((px_b->b&1)&(px_a->b&1)) );
+			px_d->g = static_cast<unsigned char>( (px_b->g>>1) + (px_a->g>>1) + ((px_b->g&1)&(px_a->g&1)) );
+			px_d->r = static_cast<unsigned char>( (px_b->r>>1) + (px_a->r>>1) + ((px_b->r&1)&(px_a->r&1)) );
 			px_d->a = static_cast<unsigned char>(255);
 		} else {
 			float ba = px_b->a, aa = px_a->a;
@@ -491,7 +491,7 @@ private:
 			px_d->b = uc_cast( ( px_b->b*ba + px_a->b*aa ) / baaa );
 			px_d->g = uc_cast( ( px_b->g*ba + px_a->g*aa ) / baaa );
 			px_d->r = uc_cast( ( px_b->r*ba + px_a->r*aa ) / baaa );
-			px_d->a = static_cast<unsigned char>( ( (px_b->a>>1) + (px_a->a>>1) ) | ((px_b->a&1)&(px_a->a&1)) );
+			px_d->a = static_cast<unsigned char>( (px_b->a>>1) + (px_a->a>>1) + ((px_b->a&1)&(px_a->a&1)) );
 		}
 	}
 public:
