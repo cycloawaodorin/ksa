@@ -187,9 +187,9 @@ static float
 rgb_distance(const PIXEL_BGRA &a, const PIXEL_BGRA &b)
 {
 	return std::hypot(
-		static_cast<float>(a.b)-static_cast<float>(b.b),
-		static_cast<float>(a.g)-static_cast<float>(b.g),
-		static_cast<float>(a.r)-static_cast<float>(b.r)
+		std::sqrt(2.0f)*(static_cast<float>(a.b)-static_cast<float>(b.b)),
+		std::sqrt(4.0f)*(static_cast<int>(a.g)-static_cast<float>(b.g)),
+		std::sqrt(3.0f)*(static_cast<int>(a.r)-static_cast<float>(b.r))
 	);
 }
 

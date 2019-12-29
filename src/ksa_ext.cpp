@@ -563,7 +563,8 @@ private:
 		if ( h <= yd ) {
 			yd = y-3;
 		}
-		if ( rgb_distance(present[yu*w+x], present[yd*w+x]) < rgb_distance(past[y*w+x], future[y*w+x]) ) {
+		float ydist=rgb_distance(present[yu*w+x], present[yd*w+x]), tdist=rgb_distance(past[y*w+x], future[y*w+x]);
+		if ( ydist < tdist || tdist > 20.0f ) {
 			interpolate_spatial(x, y);
 		} else {
 			interpolate_temporal(x, y);
