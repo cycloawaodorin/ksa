@@ -316,7 +316,6 @@ ksa_clip_double(lua_State *L)
 class DiNN {
 public:
 	PIXEL_BGRA *dest;
-	const PIXEL_BGRA *src;
 	int w, h;
 	bool top;
 	void
@@ -324,11 +323,11 @@ public:
 	{
 		if ( top ) {
 			for (int y=0; y<h; y+=2) {
-				std::memcpy(dest+(y*w), src+((y+1)*w), sizeof(PIXEL_BGRA)*w);
+				std::memcpy(dest+(y*w), dest+((y+1)*w), sizeof(PIXEL_BGRA)*w);
 			}
 		} else {
 			for (int y=1; y<h; y+=2) {
-				std::memcpy(dest+(y*w), src+((y-1)*w), sizeof(PIXEL_BGRA)*w);
+				std::memcpy(dest+(y*w), dest+((y-1)*w), sizeof(PIXEL_BGRA)*w);
 			}
 		}
 	}
@@ -340,7 +339,6 @@ ksa_deinterlace_nn(lua_State *L)
 	std::unique_ptr<DiNN> p(new DiNN());
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
 	p->h = lua_tointeger(L, ++i);
 	p->top = !( lua_tointeger(L, ++i) );
@@ -370,7 +368,7 @@ private:
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
 		for (int sy=start+skip; sy<end; sy+=2) {
 			float wy = WEIGHTS[(sy-start)>>1];
-			const PIXEL_BGRA *s_px = src+(sy*w+x);
+			const PIXEL_BGRA *s_px = dest+(sy*w+x);
 			float wya = wy*s_px->a;
 			b += s_px->b*wya;
 			g += s_px->g*wya;
@@ -387,7 +385,6 @@ private:
 public:
 	static const float WEIGHTS[6];
 	PIXEL_BGRA *dest;
-	const PIXEL_BGRA *src;
 	int w, h;
 	bool top;
 	static void
@@ -421,7 +418,6 @@ ksa_deinterlace_spatial(lua_State *L)
 	std::unique_ptr<DiSpatial> p(new DiSpatial());
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
 	p->h = lua_tointeger(L, ++i);
 	p->top = !( lua_tointeger(L, ++i) );
@@ -503,7 +499,7 @@ ksa_deinterlace_temporal(lua_State *L)
 class DiGhost {
 private:
 	void
-	interpolate_spatial(PIXEL_BGRA *d, bool t, const PIXEL_BGRA *s, int x, int y)
+	interpolate_spatial(PIXEL_BGRA *d, bool t, int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -519,7 +515,7 @@ private:
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
 		for (int sy=start+skip; sy<end; sy+=2) {
 			float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const PIXEL_BGRA *s_px = s+(sy*w+x);
+			const PIXEL_BGRA *s_px = d+(sy*w+x);
 			float wya = wy*s_px->a;
 			b += s_px->b*wya;
 			g += s_px->g*wya;
@@ -537,38 +533,37 @@ private:
 	interpolate_temporal(int x, int y)
 	{
 		int idx = y*w+x;
-		PIXEL_BGRA *px_d = temp+idx;
-		const PIXEL_BGRA *px_p = past+idx, *px_f = future+idx;
-		if ( px_p->a == 255 && px_f->a == 255 ) {
-			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
-			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
-			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
-			px_d->a = static_cast<unsigned char>(255);
+		PIXEL_BGRA *px_d = past_temp+idx;
+		const PIXEL_BGRA *px_f = future+idx;
+		if ( px_d->a == 255 && px_f->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
 		} else {
-			float pa = px_p->a, fa = px_f->a;
+			float pa = px_d->a, fa = px_f->a;
 			float pafa = pa+fa;
-			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
-			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
-			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
+			px_d->b = uc_cast( ( px_d->b*pa + px_f->b*fa ) / pafa );
+			px_d->g = uc_cast( ( px_d->g*pa + px_f->g*fa ) / pafa );
+			px_d->r = uc_cast( ( px_d->r*pa + px_f->r*fa ) / pafa );
 			px_d->a = uc_cast( pafa*0.5f );
 		}
 	}
 	void
 	interpolate0(int x, int y)
 	{
-		interpolate_spatial(dest, top, present, x, y);
+		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
 	void
 	interpolate1(int x, int y)
 	{
-		interpolate_spatial(temp, !top, temp, x, y);
+		interpolate_spatial(past_temp, !top, x, y);
 	}
 	void
 	mix(int x, int y)
 	{
 		int idx = y*w+x;
-		PIXEL_BGRA *px_d=dest+idx, *px_t=temp+idx;
+		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
 		if ( px_d->a == 255 && px_t->a == 255 ) {
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
@@ -583,8 +578,8 @@ private:
 		}
 	}
 public:
-	PIXEL_BGRA *dest, *temp;
-	const PIXEL_BGRA *past, *present, *future;
+	PIXEL_BGRA *dest, *past_temp;
+	const PIXEL_BGRA *future;
 	int w, h;
 	bool top;
 	static void
@@ -644,10 +639,8 @@ ksa_deinterlace_ghost(lua_State *L)
 	std::unique_ptr<DiGhost> p(new DiGhost());
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->present = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->past_temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
 	p->h = lua_tointeger(L, ++i);
 	p->top = !( lua_tointeger(L, ++i) );
