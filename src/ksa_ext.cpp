@@ -324,11 +324,11 @@ public:
 	{
 		if ( top ) {
 			for (int y=0; y<h; y+=2) {
-				memcpy(dest+(y*w), src+((y+1)*w), sizeof(PIXEL_BGRA)*w);
+				std::memcpy(dest+(y*w), src+((y+1)*w), sizeof(PIXEL_BGRA)*w);
 			}
 		} else {
 			for (int y=1; y<h; y+=2) {
-				memcpy(dest+(y*w), src+((y-1)*w), sizeof(PIXEL_BGRA)*w);
+				std::memcpy(dest+(y*w), src+((y-1)*w), sizeof(PIXEL_BGRA)*w);
 			}
 		}
 	}
@@ -442,9 +442,9 @@ private:
 		PIXEL_BGRA *px_d = dest+idx;
 		const PIXEL_BGRA *px_p = past+idx, *px_f = future+idx;
 		if ( px_p->a == 255 && px_f->a == 255 ) {
-			px_d->b = static_cast<unsigned char>( (px_p->b>>1) + (px_f->b>>1) + ((px_p->b&1)&(px_f->b&1)) );
-			px_d->g = static_cast<unsigned char>( (px_p->g>>1) + (px_f->g>>1) + ((px_p->g&1)&(px_f->g&1)) );
-			px_d->r = static_cast<unsigned char>( (px_p->r>>1) + (px_f->r>>1) + ((px_p->r&1)&(px_f->r&1)) );
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->a = static_cast<unsigned char>(255);
 		} else {
 			float pa = px_p->a, fa = px_f->a;
@@ -452,7 +452,7 @@ private:
 			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
 			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
 			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
-			px_d->a = static_cast<unsigned char>( (px_p->a>>1) + (px_f->a>>1) + ((px_p->a&1)&(px_f->a&1)) );
+			px_d->a = static_cast<unsigned char>( (static_cast<int>(px_p->a)+static_cast<int>(px_f->a))>>1 );
 		}
 	}
 public:
@@ -500,14 +500,14 @@ ksa_deinterlace_temporal(lua_State *L)
 	return 0;
 }
 
-class DiAdaptive {
+class DiGhost {
 private:
 	void
-	interpolate_spatial(int x, int y)
+	interpolate_spatial(PIXEL_BGRA *d, bool t, const PIXEL_BGRA *s, int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
-			if ( top ) {
+			if ( t ) {
 				skip = -start+1;
 			} else {
 				skip = -start;
@@ -519,7 +519,7 @@ private:
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
 		for (int sy=start+skip; sy<end; sy+=2) {
 			float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const PIXEL_BGRA *s_px = present+(sy*w+x);
+			const PIXEL_BGRA *s_px = s+(sy*w+x);
 			float wya = wy*s_px->a;
 			b += s_px->b*wya;
 			g += s_px->g*wya;
@@ -527,7 +527,7 @@ private:
 			a += wya;
 			ww += wy;
 		}
-		PIXEL_BGRA *d_px = dest+(y*w+x);
+		PIXEL_BGRA *d_px = d+(y*w+x);
 		d_px->b = uc_cast(b/a);
 		d_px->g = uc_cast(g/a);
 		d_px->r = uc_cast(r/a);
@@ -537,12 +537,12 @@ private:
 	interpolate_temporal(int x, int y)
 	{
 		int idx = y*w+x;
-		PIXEL_BGRA *px_d = dest+idx;
+		PIXEL_BGRA *px_d = temp+idx;
 		const PIXEL_BGRA *px_p = past+idx, *px_f = future+idx;
 		if ( px_p->a == 255 && px_f->a == 255 ) {
-			px_d->b = static_cast<unsigned char>( (px_p->b>>1) + (px_f->b>>1) + ((px_p->b&1)&(px_f->b&1)) );
-			px_d->g = static_cast<unsigned char>( (px_p->g>>1) + (px_f->g>>1) + ((px_p->g&1)&(px_f->g&1)) );
-			px_d->r = static_cast<unsigned char>( (px_p->r>>1) + (px_f->r>>1) + ((px_p->r&1)&(px_f->r&1)) );
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->a = static_cast<unsigned char>(255);
 		} else {
 			float pa = px_p->a, fa = px_f->a;
@@ -550,68 +550,113 @@ private:
 			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
 			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
 			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
-			px_d->a = static_cast<unsigned char>( (px_p->a>>1) + (px_f->a>>1) + ((px_p->a&1)&(px_f->a&1)) );
+			px_d->a = uc_cast( pafa*0.5f );
 		}
 	}
 	void
-	interpolate(int x, int y)
+	interpolate0(int x, int y)
 	{
-		int yu=y-1, yd=y+1;
-		if ( yu < 0 ) {
-			yu = 3;
-		}
-		if ( h <= yd ) {
-			yd = y-3;
-		}
-		float ydist=rgb_distance(present[yu*w+x], present[yd*w+x]), tdist=rgb_distance(past[y*w+x], future[y*w+x]);
-		if ( ydist < tdist || tdist > 20.0f ) {
-			interpolate_spatial(x, y);
+		interpolate_spatial(dest, top, present, x, y);
+		interpolate_temporal(x, y);
+	}
+	void
+	interpolate1(int x, int y)
+	{
+		interpolate_spatial(temp, !top, temp, x, y);
+	}
+	void
+	mix(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d=dest+idx, *px_t=temp+idx;
+		if ( px_d->a == 255 && px_t->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
 		} else {
-			interpolate_temporal(x, y);
+			float da = px_d->a, ta = px_t->a;
+			float data = da+ta;
+			px_d->b = uc_cast( ( px_d->b*da + px_t->b*ta ) / data );
+			px_d->g = uc_cast( ( px_d->g*da + px_t->g*ta ) / data );
+			px_d->r = uc_cast( ( px_d->r*da + px_t->r*ta ) / data );
+			px_d->a = uc_cast( data*0.5f );
 		}
 	}
 public:
-	PIXEL_BGRA *dest;
+	PIXEL_BGRA *dest, *temp;
 	const PIXEL_BGRA *past, *present, *future;
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiAdaptive *p, int i, int n_th)
+	invoke_interpolate0(DiGhost *p, int i, int n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
 		if ( p->top ) {
 			for (int y=0; y<p->h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					p->interpolate0(x, y);
 				}
 			}
 		} else {
 			for (int y=1; y<p->h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					p->interpolate0(x, y);
 				}
+			}
+		}
+	}
+	static void
+	invoke_interpolate1(DiGhost *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate1(x, y);
+				}
+			}
+		} else {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate1(x, y);
+				}
+			}
+		}
+	}
+	static void
+	invoke_mix(DiGhost *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		for (int y=0; y<p->h; y++) {
+			for (int x=x_start; x<x_end; x++) {
+				p->mix(x, y);
 			}
 		}
 	}
 };
 static int
-ksa_deinterlace_adaptive(lua_State *L)
+ksa_deinterlace_ghost(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<DiAdaptive> p(new DiAdaptive());
+	std::unique_ptr<DiGhost> p(new DiGhost());
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->present = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
 	p->h = lua_tointeger(L, ++i);
 	p->top = !( lua_tointeger(L, ++i) );
 	int n_th = n_th_correction(lua_tointeger(L, ++i));
 	
 	// 本処理
-	parallel_do(DiAdaptive::invoke_interpolate, p.get(), n_th);
+	parallel_do(DiGhost::invoke_interpolate0, p.get(), n_th);
+	parallel_do(DiGhost::invoke_interpolate1, p.get(), n_th);
+	parallel_do(DiGhost::invoke_mix, p.get(), n_th);
 	
 	return 0;
 }

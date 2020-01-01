@@ -149,22 +149,23 @@ if ( obj.track0 == 1 ) then -- –³•âŠÔ
 	local pr, _w, _h = obj.getpixeldata("alloc")
 	ksa.deinterlace_nn(dest, pr, w, h, XOR(obj.frame%2, obj.track1))
 	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
-elseif ( obj.track0 == 2 ) then -- “K‰•âŠÔ
-	local present, _w, _h = obj.getpixeldata("alloc")
-	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
-	local past, _w, _h = obj.getpixeldata("alloc")
-	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
-	local future, _w, _h = obj.getpixeldata("alloc")
-	ksa.deinterlace_adaptive(dest, past, present, future, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
-elseif ( obj.track0 == 3 ) then -- ‹óŠÔ•ûŒü•âŠÔ
+elseif ( obj.track0 == 2 ) then -- ‹óŠÔ•ûŒü•âŠÔ
 	local pr, _w, _h = obj.getpixeldata("alloc")
 	ksa.deinterlace_spatial(dest, pr, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
-elseif ( obj.track0 == 4 ) then -- ŠÔ•ûŒü•âŠÔ
+elseif ( obj.track0 == 3 ) then -- ŠÔ•ûŒü•âŠÔ
 	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
 	local bf, _w, _h = obj.getpixeldata("alloc")
 	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
 	local af, _w, _h = obj.getpixeldata("alloc")
 	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+elseif ( obj.track0 == 4 ) then -- ŠÔ•ûŒü•âŠÔ with “ñd‰»
+	local present, _w, _h = obj.getpixeldata("alloc")
+	local temp, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+	local past, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
+	local future, _w, _h = obj.getpixeldata("alloc")
+	ksa.deinterlace_ghost(dest, past, present, future, temp, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
 else
 	-- ‰½‚à‚µ‚È‚¢
 end

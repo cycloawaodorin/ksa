@@ -4,6 +4,7 @@
 #include <numeric>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 
 namespace KSA {
@@ -182,15 +183,6 @@ n_th_correction(int n_th)
 		}
 	}
 	return n_th;
-}
-static float
-rgb_distance(const PIXEL_BGRA &a, const PIXEL_BGRA &b)
-{
-	return std::hypot(
-		std::sqrt(2.0f)*(static_cast<float>(a.b)-static_cast<float>(b.b)),
-		std::sqrt(4.0f)*(static_cast<int>(a.g)-static_cast<float>(b.g)),
-		std::sqrt(3.0f)*(static_cast<int>(a.r)-static_cast<float>(b.r))
-	);
 }
 
 #include "ksa_ext.cpp"
