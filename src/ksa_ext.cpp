@@ -1,22 +1,3 @@
-constexpr float PI = 3.141592653589793f;
-using PIXEL_BGRA = struct pixel_bgra {
-	alignas(1) unsigned char b;
-	alignas(1) unsigned char g;
-	alignas(1) unsigned char r;
-	alignas(1) unsigned char a;
-};
-static unsigned char
-uc_cast(float x)
-{
-	if ( x < 0.0f || std::isnan(x) ) {
-		return static_cast<unsigned char>(0);
-	} else if ( 255.0f < x ) {
-		return static_cast<unsigned char>(255);
-	} else {
-		return static_cast<unsigned char>(std::round(x));
-	}
-}
-
 // 透明グラデーション
 class Trsgrad {
 public:
@@ -211,20 +192,14 @@ ksa_clip_resize(lua_State *L)
 	p->y.clip_end = lua_tointeger(L, ++i);
 	p->x.clip_start = lua_tointeger(L, ++i);
 	p->x.clip_end = lua_tointeger(L, ++i);
-	int n_th = lua_tointeger(L, ++i);
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
 	
-	// パラメータ
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
+	// パラメータ計算
 	p->x.calc_params();
 	p->y.calc_params();
-	
-	// 重み計算，本処理
 	parallel_do(ClipResize::invoke_set_weights, p.get(), n_th);
+	
+	// 本処理
 	parallel_do(ClipResize::invoke_interpolate, p.get(), n_th);
 	
 	return 0;
@@ -304,8 +279,14 @@ public:
 		}
 	}
 };
-constexpr float ClipDouble::WEIGHTS_E[] = {0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f, 0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f};
-constexpr float ClipDouble::WEIGHTS_O[] = {0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f, 0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f};
+constexpr float ClipDouble::WEIGHTS_E[] = {
+	0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f,
+	0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f
+};
+constexpr float ClipDouble::WEIGHTS_O[] = {
+	0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f,
+	0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f
+};
 static int
 ksa_clip_double(lua_State *L)
 {
@@ -320,20 +301,356 @@ ksa_clip_double(lua_State *L)
 	p->cb = lua_tointeger(L, ++i);
 	p->cl = lua_tointeger(L, ++i);
 	p->cr = lua_tointeger(L, ++i);
-	int n_th = lua_tointeger(L, ++i);
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
 	
 	// パラメータ計算
 	p->dw = (p->sw - p->cl - p->cr)*2;
 	p->dh = (p->sh - p->ct - p->cb)*2;
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
 	
 	// 本処理
 	parallel_do(ClipDouble::invoke_interpolate, p.get(), n_th);
 	
 	return 0;
 }
+
+class DiNN {
+public:
+	PIXEL_BGRA *dest;
+	int w, h;
+	bool top;
+	void
+	doubling()
+	{
+		if ( top ) {
+			for (int y=0; y<h; y+=2) {
+				std::memcpy(dest+(y*w), dest+((y+1)*w), sizeof(PIXEL_BGRA)*w);
+			}
+		} else {
+			for (int y=1; y<h; y+=2) {
+				std::memcpy(dest+(y*w), dest+((y-1)*w), sizeof(PIXEL_BGRA)*w);
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_nn(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiNN> p(new DiNN());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	
+	// 本処理
+	p->doubling();
+	
+	return 0;
+}
+
+class DiSpatial {
+private:
+	void
+	interpolate(int x, int y)
+	{
+		int start=y-5, end=y+6, skip=0;
+		if ( start<0 ) {
+			if ( top ) {
+				skip = -start+1;
+			} else {
+				skip = -start;
+			}
+		}
+		if ( h<end ) {
+			end = h;
+		}
+		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		for (int sy=start+skip; sy<end; sy+=2) {
+			float wy = WEIGHTS[(sy-start)>>1];
+			const PIXEL_BGRA *s_px = dest+(sy*w+x);
+			float wya = wy*s_px->a;
+			b += s_px->b*wya;
+			g += s_px->g*wya;
+			r += s_px->r*wya;
+			a += wya;
+			ww += wy;
+		}
+		PIXEL_BGRA *d_px = dest+(y*w+x);
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/ww);
+	}
+public:
+	static const float WEIGHTS[6];
+	PIXEL_BGRA *dest;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate(DiSpatial *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		}
+	}
+};
+constexpr float DiSpatial::WEIGHTS[] = {
+	0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
+	0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
+};
+static int
+ksa_deinterlace_spatial(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiSpatial> p(new DiSpatial());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
+	
+	// 本処理
+	parallel_do(DiSpatial::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
+
+class DiTemporal {
+private:
+	void
+	interpolate(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d = dest+idx;
+		const PIXEL_BGRA *px_p = past+idx, *px_f = future+idx;
+		if ( px_p->a == 255 && px_f->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
+			px_d->a = static_cast<unsigned char>(255);
+		} else {
+			float pa = px_p->a, fa = px_f->a;
+			float pafa = pa+fa;
+			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
+			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
+			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
+			px_d->a = static_cast<unsigned char>( (static_cast<int>(px_p->a)+static_cast<int>(px_f->a))>>1 );
+		}
+	}
+public:
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *past, *future;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate(DiTemporal *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate(x, y);
+				}
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_temporal(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiTemporal> p(new DiTemporal());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
+	
+	// 本処理
+	parallel_do(DiTemporal::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
+
+class DiGhost {
+private:
+	void
+	interpolate_spatial(PIXEL_BGRA *d, bool t, int x, int y)
+	{
+		int start=y-5, end=y+6, skip=0;
+		if ( start<0 ) {
+			if ( t ) {
+				skip = -start+1;
+			} else {
+				skip = -start;
+			}
+		}
+		if ( h<end ) {
+			end = h;
+		}
+		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		for (int sy=start+skip; sy<end; sy+=2) {
+			float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
+			const PIXEL_BGRA *s_px = d+(sy*w+x);
+			float wya = wy*s_px->a;
+			b += s_px->b*wya;
+			g += s_px->g*wya;
+			r += s_px->r*wya;
+			a += wya;
+			ww += wy;
+		}
+		PIXEL_BGRA *d_px = d+(y*w+x);
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/ww);
+	}
+	void
+	interpolate_temporal(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d = past_temp+idx;
+		const PIXEL_BGRA *px_f = future+idx;
+		if ( px_d->a == 255 && px_f->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
+		} else {
+			float pa = px_d->a, fa = px_f->a;
+			float pafa = pa+fa;
+			px_d->b = uc_cast( ( px_d->b*pa + px_f->b*fa ) / pafa );
+			px_d->g = uc_cast( ( px_d->g*pa + px_f->g*fa ) / pafa );
+			px_d->r = uc_cast( ( px_d->r*pa + px_f->r*fa ) / pafa );
+			px_d->a = uc_cast( pafa*0.5f );
+		}
+	}
+	void
+	interpolate0(int x, int y)
+	{
+		interpolate_spatial(dest, top, x, y);
+		interpolate_temporal(x, y);
+	}
+	void
+	interpolate1(int x, int y)
+	{
+		interpolate_spatial(past_temp, !top, x, y);
+	}
+	void
+	mix(int x, int y)
+	{
+		int idx = y*w+x;
+		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
+		if ( px_d->a == 255 && px_t->a == 255 ) {
+			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
+			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
+			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
+		} else {
+			float da = px_d->a, ta = px_t->a;
+			float data = da+ta;
+			px_d->b = uc_cast( ( px_d->b*da + px_t->b*ta ) / data );
+			px_d->g = uc_cast( ( px_d->g*da + px_t->g*ta ) / data );
+			px_d->r = uc_cast( ( px_d->r*da + px_t->r*ta ) / data );
+			px_d->a = uc_cast( data*0.5f );
+		}
+	}
+public:
+	PIXEL_BGRA *dest, *past_temp;
+	const PIXEL_BGRA *future;
+	int w, h;
+	bool top;
+	static void
+	invoke_interpolate0(DiGhost *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate0(x, y);
+				}
+			}
+		} else {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate0(x, y);
+				}
+			}
+		}
+	}
+	static void
+	invoke_interpolate1(DiGhost *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		if ( p->top ) {
+			for (int y=1; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate1(x, y);
+				}
+			}
+		} else {
+			for (int y=0; y<p->h; y+=2) {
+				for (int x=x_start; x<x_end; x++) {
+					p->interpolate1(x, y);
+				}
+			}
+		}
+	}
+	static void
+	invoke_mix(DiGhost *p, int i, int n_th)
+	{
+		int x_start = ( i*(p->w) )/n_th;
+		int x_end = ( (i+1)*(p->w) )/n_th;
+		for (int y=0; y<p->h; y++) {
+			for (int x=x_start; x<x_end; x++) {
+				p->mix(x, y);
+			}
+		}
+	}
+};
+static int
+ksa_deinterlace_ghost(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<DiGhost> p(new DiGhost());
+	int i=0;
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->past_temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->top = !( lua_tointeger(L, ++i) );
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
+	
+	// 本処理
+	parallel_do(DiGhost::invoke_interpolate0, p.get(), n_th);
+	parallel_do(DiGhost::invoke_interpolate1, p.get(), n_th);
+	parallel_do(DiGhost::invoke_mix, p.get(), n_th);
+	
+	return 0;
+}
+
