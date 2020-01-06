@@ -324,9 +324,9 @@ obj.copybuffer("obj", "tmp")
 obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
 
 @インターレース解除
---track0:解除法,0,4,0,1
+--track0:解除法,0,4,2,1
 --track1:BFF/TFF,0,1,1,1
---track2:スレッド数,-128,128,-1,1
+--track2:スレッド数,-128,128,0,1
 --file:
 
 local ksa = require("ksa")
