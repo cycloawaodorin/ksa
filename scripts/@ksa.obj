@@ -322,3 +322,35 @@ end
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
 obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@インターレース解除
+--track0:解除法,0,4,2,1
+--track1:BFF/TFF,0,1,1,1
+--track2:スレッド数,-128,128,0,1
+--file:
+
+local ksa = require("ksa")
+obj.load("movie", file, (obj.frame-0.5)/obj.framerate)
+local dest, w, h = obj.getpixeldata("alloc")
+
+if ( obj.track0 == 1 ) then -- 無補間
+	ksa.deinterlace_nn(dest, w, h, XOR(obj.frame%2, obj.track1))
+elseif ( obj.track0 == 2 ) then -- 空間方向補間
+	ksa.deinterlace_spatial(dest, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+elseif ( obj.track0 == 3 ) then -- 時間方向補間
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+	local bf, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
+	local af, _w, _h = obj.getpixeldata("alloc")
+	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+elseif ( obj.track0 == 4 ) then -- 時間方向補間 with 二重化
+	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
+	local past, _w, _h = obj.getpixeldata("alloc")
+	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
+	local future, _w, _h = obj.getpixeldata("alloc")
+	ksa.deinterlace_ghost(dest, past, future, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+else
+	-- 何もしない
+end
+
+obj.putpixeldata(dest)
