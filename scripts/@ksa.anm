@@ -45,8 +45,8 @@ ksa.drawrect(x0, y0, x1, y1)
 
 @Lanczos3リサイズ
 --track0:拡大率,0,800,100,0.01
---track1:X,0,800,100,0.01
---track2:Y,0,800,100,0.01
+--track1:X,0,10000,100,0.01
+--track2:Y,0,10000,100,0.01
 --check0:ドット数でサイズ指定,0
 --dialog:スレッド数,local n_th=-1;上,local ct=0;下,local cb=0;左,local cl=0;右,local cr=0;
 
