@@ -3,8 +3,8 @@ class Trsgrad {
 public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	float
-	calc_grad(float x, float y)
-	{
+	calc_grad(const float &x, const float &y)
+	const {
 		float d = sx * ( x - cx ) + sy * ( y - cy );
 		if ( d < -0.5f ) {
 			return a0;
@@ -48,13 +48,149 @@ ksa_trsgrad(lua_State *L)
 	return 0;
 }
 
+// 縁透明グラデーション
+class Edgegrad {
+private:
+	float
+	mag(const float &z)
+	const {
+		if ( type == 0 ) {
+			return z;
+		} else if ( type == 1 ) {
+			const float omz = 1.0f - z;
+			return std::sqrt(1.0f-(omz*omz));
+		} else {
+			return 0.0f;
+		}
+	}
+	float
+	cw(const float &cx, const float &cy)
+	const {
+		if ( round ) {
+			return std::max(1.0f-std::hypot(1.0f-cx, 1.0f-cy), 0.0f);
+		} else {
+			return std::min(cx, cy);
+		}
+	}
+	void
+	set_alpha(const int &x, const int &y, const float &z)
+	{
+		PIXEL_BGRA *tag = data + (y*w+x);
+		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
+	}
+	void
+	corner()
+	{
+		for (int y=0; y<t; y++) {
+			const float cy = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
+			for (int x=0; x<l; x++) {
+				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+				set_alpha(x, y, cw(cx, cy));
+			}
+			for (int x=w-r; x<w; x++) {
+				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+				set_alpha(x, y, cw(cx, cy));
+			}
+		}
+		for (int y=h-b; y<h; y++) {
+			const float cy = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
+			for (int x=0; x<l; x++) {
+				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+				set_alpha(x, y, cw(cx, cy));
+			}
+			for (int x=w-r; x<w; x++) {
+				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+				set_alpha(x, y, cw(cx, cy));
+			}
+		}
+	}
+	void
+	top()
+	{
+		for (int y=0; y<t; y++) {
+			const float z = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
+			for (int x=l; x<w-r; x++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	bottom()
+	{
+		for (int y=h-b; y<h; y++) {
+			const float z = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
+			for (int x=l; x<w-r; x++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	left()
+	{
+		for (int x=0; x<l; x++) {
+			const float z = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+			for (int y=t; y<h-b; y++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	right()
+	{
+		for (int x=w-r; x<w; x++) {
+			const float z = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+			for (int y=t; y<h-b; y++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+public:
+	PIXEL_BGRA *data;
+	int w, h, t, b, l, r, type;
+	bool round;
+	static void
+	invoke(Edgegrad *p, const int &i, const int &n_th)
+	{
+		if ( i == 0 ) {
+			p->corner();
+		} else if ( i == 1 ) {
+			p->top();
+		} else if ( i == 2 ) {
+			p->bottom();
+		} else if ( i == 3 ) {
+			p->left();
+		} else {
+			p->right();
+		}
+	}
+};
+static int
+ksa_edgegrad(lua_State *L)
+{
+	int i=0;
+	std::unique_ptr<Edgegrad> p(new Edgegrad);
+	p->data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->t = lua_tointeger(L, ++i);
+	p->b = lua_tointeger(L, ++i);
+	p->l = lua_tointeger(L, ++i);
+	p->r = lua_tointeger(L, ++i);
+	p->round = (lua_tointeger(L, ++i)!=0);
+	p->type = lua_tointeger(L, ++i);
+	
+	parallel_do(Edgegrad::invoke, p.get(), 5);
+	
+	return 0;
+}
+
 // クリッピング & Lanczos3 拡大縮小
 class ClipResize {
 private:
 	class XY {
 	private:
 		static float
-		sinc(float x)
+		sinc(const float &x)
 		{
 			if ( x == 0.0f ) {
 				return 1.0f;
@@ -63,7 +199,7 @@ private:
 			}
 		}
 		static float
-		lanczos3(float x)
+		lanczos3(const float &x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
@@ -77,7 +213,7 @@ private:
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
-		calc_range(int dest, RANGE *range)
+		calc_range(const int &dest, RANGE *range)
 		{
 			range->center = reversed_scale*dest+correction;
 			if ( extend ) {
@@ -107,7 +243,7 @@ private:
 			weights.reset(new std::unique_ptr<float[]>[var]);
 		}
 		void
-		set_weights(int start, int end)
+		set_weights(const int &start, const int &end)
 		{
 			for (int i=start; i<end; i++) {
 				Rational c = reversed_scale*i + correction;
@@ -127,7 +263,7 @@ private:
 		}
 	};
 	void
-	interpolate(int dx, int dy)
+	interpolate(const int &dx, const int &dy)
 	{
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
@@ -159,13 +295,13 @@ public:
 	PIXEL_BGRA *dest;
 	XY x, y;
 	static void
-	invoke_set_weights(ClipResize *p, int i, int n_th)
+	invoke_set_weights(ClipResize *p, const int &i, const int &n_th)
 	{
 		p->x.set_weights(( i*(p->x.var) )/n_th, ( (i+1)*(p->x.var) )/n_th);
 		p->y.set_weights(( i*(p->y.var) )/n_th, ( (i+1)*(p->y.var) )/n_th);
 	}
 	static void
-	invoke_interpolate(ClipResize *p, int i, int n_th)
+	invoke_interpolate(ClipResize *p, const int &i, const int &n_th)
 	{
 		int y_start = ( i*(p->y.dest_size) )/n_th;
 		int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
@@ -213,7 +349,7 @@ private:
 		const float *weights;
 	};
 	static void
-	calc_range(RANGE *range, int dxy, int clip_start, int smax)
+	calc_range(RANGE *range, const int &dxy, const int &clip_start, const int &smax)
 	{
 		if ( dxy%2 == 0 ) {
 			range->start = dxy/2 - 3 + clip_start;
@@ -237,7 +373,7 @@ private:
 		}
 	}
 	void
-	interpolate(int dx, int dy)
+	interpolate(const int &dx, const int &dy)
 	{
 		RANGE xrange, yrange;
 		calc_range(&xrange, dx, cl, sw-cr-1);
@@ -268,7 +404,7 @@ public:
 	PIXEL_BGRA *dest;
 	int sw, sh, dw, dh, ct, cb, cl, cr;
 	static void
-	invoke_interpolate(ClipDouble *p, int i, int n_th)
+	invoke_interpolate(ClipDouble *p, const int &i, const int &n_th)
 	{
 		int y_start = ( i*(p->dh) )/n_th;
 		int y_end = ( (i+1)*(p->dh) )/n_th;
@@ -352,7 +488,7 @@ ksa_deinterlace_nn(lua_State *L)
 class DiSpatial {
 private:
 	void
-	interpolate(int x, int y)
+	interpolate(const int &x, const int &y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -388,7 +524,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiSpatial *p, int i, int n_th)
+	invoke_interpolate(DiSpatial *p, const int &i, const int &n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
@@ -432,7 +568,7 @@ ksa_deinterlace_spatial(lua_State *L)
 class DiTemporal {
 private:
 	void
-	interpolate(int x, int y)
+	interpolate(const int &x, const int &y)
 	{
 		int idx = y*w+x;
 		PIXEL_BGRA *px_d = dest+idx;
@@ -457,7 +593,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiTemporal *p, int i, int n_th)
+	invoke_interpolate(DiTemporal *p, const int &i, const int &n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
@@ -499,7 +635,7 @@ ksa_deinterlace_temporal(lua_State *L)
 class DiGhost {
 private:
 	void
-	interpolate_spatial(PIXEL_BGRA *d, bool t, int x, int y)
+	interpolate_spatial(PIXEL_BGRA *d, const bool &t, const int &x, const int &y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -530,7 +666,7 @@ private:
 		d_px->a = uc_cast(a/ww);
 	}
 	void
-	interpolate_temporal(int x, int y)
+	interpolate_temporal(const int &x, const int &y)
 	{
 		int idx = y*w+x;
 		PIXEL_BGRA *px_d = past_temp+idx;
@@ -549,18 +685,18 @@ private:
 		}
 	}
 	void
-	interpolate0(int x, int y)
+	interpolate0(const int &x, const int &y)
 	{
 		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
 	void
-	interpolate1(int x, int y)
+	interpolate1(const int &x, const int &y)
 	{
 		interpolate_spatial(past_temp, !top, x, y);
 	}
 	void
-	mix(int x, int y)
+	mix(const int &x, const int &y)
 	{
 		int idx = y*w+x;
 		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
@@ -583,7 +719,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate0(DiGhost *p, int i, int n_th)
+	invoke_interpolate0(DiGhost *p, const int &i, const int &n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
@@ -602,7 +738,7 @@ public:
 		}
 	}
 	static void
-	invoke_interpolate1(DiGhost *p, int i, int n_th)
+	invoke_interpolate1(DiGhost *p, const int &i, const int &n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
@@ -621,7 +757,7 @@ public:
 		}
 	}
 	static void
-	invoke_mix(DiGhost *p, int i, int n_th)
+	invoke_mix(DiGhost *p, const int &i, const int &n_th)
 	{
 		int x_start = ( i*(p->w) )/n_th;
 		int x_end = ( (i+1)*(p->w) )/n_th;
