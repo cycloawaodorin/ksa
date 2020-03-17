@@ -3,7 +3,7 @@
 --track1:中心Y,-1000,1000,0,1
 --track2:角度,-360,360,0
 --track3:幅,0,1000,100,1
---dialog:開始透明度,local s_tp=0;終了透明度,local e_tp=100;
+--dialog:開始透明度,local s_tp=0;終了透明度,local e_tp=100;タイプ,local type=0;
 
 local ksa = require("ksa")
 
@@ -12,7 +12,7 @@ local e_alp = (1-e_tp/100)
 local angle = math.rad( obj.track2 )
 
 local data, w, h = obj.getpixeldata()
-ksa.trsgrad(data, w, h, obj.track0+obj.cx+w/2, obj.track1+obj.cy+h/2, angle, obj.track3, s_alp, e_alp)
+ksa.trsgrad(data, w, h, obj.track0+obj.cx+w/2, obj.track1+obj.cy+h/2, angle, obj.track3, s_alp, e_alp, type)
 obj.putpixeldata(data)
 
 @縁透明グラデーション

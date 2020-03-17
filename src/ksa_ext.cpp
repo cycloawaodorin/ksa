@@ -2,6 +2,7 @@
 class Trsgrad {
 public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
+	int type;
 	float
 	calc_grad(const float &x, const float &y)
 	const {
@@ -11,6 +12,9 @@ public:
 		} else if ( 0.5f < d ) {
 			return a1;
 		} else {
+			if ( type == 1 ) {
+				d = 0.5f*std::sin(PI*d);
+			}
 			return (a_int+a_cef*d);
 		}
 	}
@@ -30,6 +34,7 @@ ksa_trsgrad(lua_State *L)
 	float gwidth = static_cast<float>(lua_tonumber(L, ++i));
 	p->a0 = static_cast<float>(lua_tonumber(L, ++i));
 	p->a1 = static_cast<float>(lua_tonumber(L, ++i));
+	p->type = lua_tointeger(L, ++i);
 	
 	// パラメータ計算
 	p->sx = -std::sin(angle)/gwidth;
