@@ -13,7 +13,7 @@ class Rational {
 private:
 	std::int64_t numerator, denominator;
 public:
-	Rational(std::int64_t num, std::int64_t den)
+	Rational(const std::int64_t &num, const std::int64_t &den)
 	{
 		std::int64_t c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
@@ -24,7 +24,7 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(std::int64_t i) : numerator(i), denominator(1)
+	Rational(const std::int64_t &i) : numerator(i), denominator(1)
 	{
 	}
 	Rational() : numerator(0), denominator(1)
@@ -144,7 +144,7 @@ public:
 
 template <class T>
 static void
-parallel_do(void (*f)(T*, int, int), T *p, int n)
+parallel_do(void (*f)(T*, const int &, const int &), T *p, const int &n)
 {
 	std::unique_ptr<std::thread[]> threads(new std::thread[n]);
 	for (int i=0; i<n; i++) {
@@ -163,7 +163,7 @@ using PIXEL_BGRA = struct pixel_bgra {
 	alignas(1) unsigned char a;
 };
 static unsigned char
-uc_cast(float x)
+uc_cast(const float &x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
 		return static_cast<unsigned char>(0);

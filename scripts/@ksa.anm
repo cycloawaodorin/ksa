@@ -15,6 +15,19 @@ local data, w, h = obj.getpixeldata()
 ksa.trsgrad(data, w, h, obj.track0+obj.cx+w/2, obj.track1+obj.cy+h/2, angle, obj.track3, s_alp, e_alp)
 obj.putpixeldata(data)
 
+@縁透明グラデーション
+--track0:幅,0,1000,10,1
+--track1:角丸,0,1,1,1
+--track2:タイプ,0,1,1,1
+--dialog:追加上,local pt=0;追加下,local pb=0;追加左,local pl=0;追加右,local pr=0;
+
+local ksa = require("ksa")
+
+local data, w, h = obj.getpixeldata()
+local gw = obj.track0;
+ksa.edgegrad(data, w, h, gw+pt, gw+pb, gw+pl, gw+pr, obj.track1, obj.track2)
+obj.putpixeldata(data)
+
 @回転
 --track0:回転量,0,100,6,1
 --track1:縦回転,0,1,0,1
