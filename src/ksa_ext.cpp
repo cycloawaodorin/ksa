@@ -48,6 +48,144 @@ ksa_trsgrad(lua_State *L)
 	return 0;
 }
 
+// 縁透明グラデーション
+class Edgegrad {
+private:
+	float
+	mag(const float &z)
+	const
+	{
+		if ( type == 0 ) {
+			return z;
+		} else if ( type == 1 ) {
+			const float omz = 1.0f - z;
+			return std::sqrt(1.0f-(omz*omz));
+		} else {
+			return 0.0f;
+		}
+	}
+	float
+	cw(const float &cx, const float &cy)
+	const
+	{
+		if ( round ) {
+			return std::max(1.0f-std::hypot(1.0f-cx, 1.0f-cy), 0.0f);
+		} else {
+			return std::min(cx, cy);
+		}
+	}
+	void
+	set_alpha(const int &x, const int &y, const float &z)
+	{
+		PIXEL_BGRA *tag = data + (y*w+x);
+		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
+	}
+	void
+	corner()
+	{
+		for (int y=0; y<t; y++) {
+			const float cy = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
+			for (int x=0; x<l; x++) {
+				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+				set_alpha(x, y, cw(cx, cy));
+			}
+			for (int x=w-r; x<w; x++) {
+				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+				set_alpha(x, y, cw(cx, cy));
+			}
+		}
+		for (int y=h-b; y<h; y++) {
+			const float cy = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
+			for (int x=0; x<l; x++) {
+				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+				set_alpha(x, y, cw(cx, cy));
+			}
+			for (int x=w-r; x<w; x++) {
+				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+				set_alpha(x, y, cw(cx, cy));
+			}
+		}
+	}
+	void
+	top()
+	{
+		for (int y=0; y<t; y++) {
+			const float z = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
+			for (int x=l; x<w-r; x++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	bottom()
+	{
+		for (int y=h-b; y<h; y++) {
+			const float z = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
+			for (int x=l; x<w-r; x++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	left()
+	{
+		for (int x=0; x<l; x++) {
+			const float z = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
+			for (int y=t; y<h-b; y++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+	void
+	right()
+	{
+		for (int x=w-r; x<w; x++) {
+			const float z = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
+			for (int y=t; y<h-b; y++) {
+				set_alpha(x, y, z);
+			}
+		}
+	}
+public:
+	PIXEL_BGRA *data;
+	int w, h, t, b, l, r, type;
+	bool round;
+	static void
+	invoke(Edgegrad *p, int i, int n_th)
+	{
+		if ( i == 0 ) {
+			p->corner();
+		} else if ( i == 1 ) {
+			p->top();
+		} else if ( i == 2 ) {
+			p->bottom();
+		} else if ( i == 3 ) {
+			p->left();
+		} else {
+			p->right();
+		}
+	}
+};
+static int
+ksa_edgegrad(lua_State *L)
+{
+	int i=0;
+	std::unique_ptr<Edgegrad> p(new Edgegrad);
+	p->data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->w = lua_tointeger(L, ++i);
+	p->h = lua_tointeger(L, ++i);
+	p->t = lua_tointeger(L, ++i);
+	p->b = lua_tointeger(L, ++i);
+	p->l = lua_tointeger(L, ++i);
+	p->r = lua_tointeger(L, ++i);
+	p->round = (lua_tointeger(L, ++i)!=0);
+	p->type = lua_tointeger(L, ++i);
+	
+	parallel_do(Edgegrad::invoke, p.get(), 5);
+	
+	return 0;
+}
+
 // クリッピング & Lanczos3 拡大縮小
 class ClipResize {
 private:
