@@ -20,7 +20,7 @@ local x0, y0 = a_pos[1], a_pos[2]
 for i=1,na-1 do
 	local x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
 	local dx, dy = x1-x0, y1-y0
-	lens[i] = math.sqrt(dx*dx+dy*dy)
+	lens[i] = ksa.hypot(dx, dy)
 	whole_length = whole_length + lens[i]
 	x0, y0 = x1, y1
 end
@@ -45,7 +45,7 @@ for i=1,na-1 do
 		if ( fseg_len < head_len ) then -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·–¢–ž
 			pos[i2+1] = x0
 			pos[i2+2] = y0
-			local d_len = math.sqrt(dx*dx+dy*dy)
+			local d_len = ksa.hypot(dx, dy)
 			local r = fseg_len/head_len
 			if ( head_wid * r < lw ) then
 				r = lw/d_len
@@ -72,7 +72,7 @@ for i=1,na-1 do
 					local dy = yy1-yy0
 					head[nh6-5] = xx1
 					head[nh6-4] = yy1
-					local d_len = math.sqrt(dx*dx+dy*dy)
+					local d_len = ksa.hypot(dx, dy)
 					local draw_head_len
 					if ( remain_len < lens[j] ) then
 						draw_head_len = remain_len
@@ -102,7 +102,7 @@ for i=1,na-1 do
 			local r = ( fseg_len - head_len*(1+head_wid/(lw+head_wid))/2 )/lens[i]
 			pos[i2+1] = x0 + dx * r
 			pos[i2+2] = y0 + dy * r
-			local d_len = math.sqrt(dx*dx+dy*dy)
+			local d_len = ksa.hypot(dx, dy)
 			local r = head_wid/d_len
 			local hdx = dy * r
 			local hdy = -dx * r
@@ -172,7 +172,7 @@ local x0, y0 = pos[1], pos[2]
 for i2=2,(n-1)*2,2 do
 	local x1, y1 = pos[i2+1], pos[i2+2]
 	local dxr, dyr = x1-x0, y1-y0
-	local d_len = math.sqrt(dxr*dxr+dyr*dyr)
+	local d_len = ksa.hypot(dxr, dyr)
 	local dx = dyr*lw/d_len
 	local dy = -dxr*lw/d_len
 	obj.drawpoly(x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0)
@@ -298,7 +298,7 @@ else
 	for i=1,n do
 		local x1, y1 = fx1*math.cos(2*math.pi*i/n), fy1*math.sin(2*math.pi*i/n)
 		local dxr, dyr = x1-x0, y1-y0
-		local d_len = math.sqrt(dxr*dxr+dyr*dyr)
+		local d_len = ksa.hypot(dxr, dyr)
 		local dx = dyr*lw/d_len
 		local dy = -dxr*lw/d_len
 		obj.drawpoly(x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0)
