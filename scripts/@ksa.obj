@@ -99,7 +99,7 @@ for i=1,na-1 do
 				end
 			end
 		else -- 最後のセグメントにおける描画長さが鏃長以上
-			local r = ( fseg_len - head_len*(1+head_wid/(lw+head_wid))/2 )/lens[i]
+			local r = ( fseg_len - head_len*(1+lw/head_wid)/2 )/lens[i]
 			pos[i2+1] = x0 + dx * r
 			pos[i2+2] = y0 + dy * r
 			local d_len = ksa.hypot(dx, dy)
@@ -190,6 +190,76 @@ for i2=2,(n-2)*2,2 do
 	local x0, y0 = pos[i2+1], pos[i2+2]
 	ksa.drawrect(x0-lw, y0-lw, x0+lw, y0+lw)
 end
+
+obj.setoption("blend", 0)
+obj.copybuffer("obj", "tmp")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@両矢印
+--track0:線幅,1,1000,20,1
+--track1:鏃長,0,3000,600
+--track2:鏃幅,100,1000,300
+--dialog:色/col,local col=0x66cc00;座標,a_pos={-100,0,100,0};
+
+local ksa = require("ksa")
+
+local lw = obj.track0/2
+local head_len = lw*obj.track1/100
+local head_wid = lw*obj.track2/100
+local n = 2
+obj.setanchor("a_pos", n, "line")
+
+-- 頂点計算
+local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+local dx, dy = x1-x0, y1-y0
+local d_len = ksa.hypot(dx, dy)
+local r = lw/d_len
+local bdx, bdy = dy*r, -dx*r
+local r = (head_len*(1+lw/head_wid)/2)/d_len
+local xx, yy = x0+dx*r, y0+dy*r
+local bx0a, by0a, bx0b, by0b = xx+bdx, yy+bdy, xx-bdx, yy-bdy
+local xx, yy = x1-dx*r, y1-dy*r
+local bx1a, by1a, bx1b, by1b = xx+bdx, yy+bdy, xx-bdx, yy-bdy
+local r = head_wid/d_len
+local hdx, hdy = dy*r, -dx*r
+local r = head_len/d_len
+local xx, yy = x0+dx*r, y0+dy*r
+local hx0a, hy0a, hx0b, hy0b = xx+hdx, yy+hdy, xx-hdx, yy-hdy
+local xx, yy = x1-dx*r, y1-dy*r
+local hx1a, hy1a, hx1b, hy1b = xx+hdx, yy+hdy, xx-hdx, yy-hdy
+
+-- 仮想バッファ
+local xx0, yy0, xx1, yy1 = x0, y0, x0, y0
+for i,e in ipairs({x1, hx0a, hx0b, hx1a, hx1b}) do
+	if e < xx0 then
+		xx0 = e
+	elseif xx1 < e then
+		xx1 = e
+	end
+end
+for i,e in ipairs({y1, hy0a, hy0b, hy1a, hy1b}) do
+	if e < yy0 then
+		yy0 = e
+	elseif yy1 < e then
+		yy1 = e
+	end
+end
+local ox, oy = (xx0+xx1)/2, (yy0+yy1)/2
+
+x0, y0, x1, y1 = x0-ox, y0-oy, x1-ox, y1-oy
+bx0a, by0a, bx0b, by0b = bx0a-ox, by0a-oy, bx0b-ox, by0b-oy
+bx1a, by1a, bx1b, by1b = bx1a-ox, by1a-oy, bx1b-ox, by1b-oy
+hx0a, hy0a, hx0b, hy0b = hx0a-ox, hy0a-oy, hx0b-ox, hy0b-oy
+hx1a, hy1a, hx1b, hy1b = hx1a-ox, hy1a-oy, hx1b-ox, hy1b-oy
+
+obj.setoption("drawtarget", "tempbuffer", math.ceil(xx1-xx0+2),math.ceil(yy1-yy0+2))
+obj.setoption("blend", "alpha_add")
+obj.load("figure", "四角形", col, 1)
+
+-- 描画
+obj.drawpoly(bx0a,by0a,0, bx0b,by0b,0, bx1b,by1b,0, bx1a,by1a,0)
+ksa.drawtri(x0, y0, hx0a, hy0a, hx0b, hy0b)
+ksa.drawtri(x1, y1, hx1a, hy1a, hx1b, hy1b)
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
