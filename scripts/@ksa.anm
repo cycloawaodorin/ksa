@@ -179,3 +179,23 @@ else
 end
 
 obj.putpixeldata(dest)
+
+@‰ÁŒ¸‘¬“ü‘Şê
+--track0:“üê,0,10,1,0.01
+--track1:‘Şê,0,10,1,0.01
+--track2:X,0,10000,0,1
+--track3:Y,0,10000,0,1
+
+local t0, t1, dx, dy = obj.track0, obj.track1, obj.track2, obj.track3
+local r = (t0-obj.time)/t0
+if ( 0 < r ) then
+	r = r*r
+	obj.ox = obj.ox + dx*r
+	obj.oy = obj.oy + dy*r
+end
+local r = (t1-obj.totaltime+obj.time)/t1
+if ( 0 < r ) then
+	r = r*r
+	obj.ox = obj.ox + dx*r
+	obj.oy = obj.oy + dy*r
+end
