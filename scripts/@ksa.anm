@@ -199,3 +199,27 @@ if ( 0 < r ) then
 	obj.ox = obj.ox + dx*r
 	obj.oy = obj.oy + dy*r
 end
+
+@“_–Å“ü‘Þê
+--track0:“üê,0,100,5,1
+--track1:‘Þê,0,100,5,1
+--track2:“_’·,1,1000,2,1
+--track3:–Å’·,1,1000,2,1
+
+local on, off = obj.track2, obj.track3
+local onoff = on + off
+local t0, t1 = onoff*obj.track0, onoff*obj.track1
+
+local r = obj.frame
+if ( r < t0 ) then
+	if ( on <= ( r % onoff ) ) then
+		obj.alpha = 0.0
+	end
+end
+
+local r = obj.totalframe - r - 1
+if ( r < t1 ) then
+	if ( on <= ( r % onoff ) ) then
+		obj.alpha = 0.0
+	end
+end
