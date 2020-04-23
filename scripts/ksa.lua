@@ -25,4 +25,22 @@ ksa.round = function(x)
 	return math.floor(x+0.5)
 end
 
+ksa.hypot = function(x, y)
+	if x < 0 then
+		x = -x
+	end
+	if y < 0 then
+		y = -y
+	end
+	if x < y then
+		x, y = y, x
+	end
+	if y == 0 then
+		return x
+	else
+		y = y/x
+		return x*math.sqrt(1+y*y)
+	end
+end
+
 return ksa

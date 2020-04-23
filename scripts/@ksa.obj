@@ -20,7 +20,7 @@ local x0, y0 = a_pos[1], a_pos[2]
 for i=1,na-1 do
 	local x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
 	local dx, dy = x1-x0, y1-y0
-	lens[i] = math.sqrt(dx*dx+dy*dy)
+	lens[i] = ksa.hypot(dx, dy)
 	whole_length = whole_length + lens[i]
 	x0, y0 = x1, y1
 end
@@ -45,7 +45,7 @@ for i=1,na-1 do
 		if ( fseg_len < head_len ) then -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·–¢–ž
 			pos[i2+1] = x0
 			pos[i2+2] = y0
-			local d_len = math.sqrt(dx*dx+dy*dy)
+			local d_len = ksa.hypot(dx, dy)
 			local r = fseg_len/head_len
 			if ( head_wid * r < lw ) then
 				r = lw/d_len
@@ -72,7 +72,7 @@ for i=1,na-1 do
 					local dy = yy1-yy0
 					head[nh6-5] = xx1
 					head[nh6-4] = yy1
-					local d_len = math.sqrt(dx*dx+dy*dy)
+					local d_len = ksa.hypot(dx, dy)
 					local draw_head_len
 					if ( remain_len < lens[j] ) then
 						draw_head_len = remain_len
@@ -99,10 +99,10 @@ for i=1,na-1 do
 				end
 			end
 		else -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·ˆÈã
-			local r = ( fseg_len - head_len*(1+head_wid/(lw+head_wid))/2 )/lens[i]
+			local r = ( fseg_len - head_len*(1+lw/head_wid)/2 )/lens[i]
 			pos[i2+1] = x0 + dx * r
 			pos[i2+2] = y0 + dy * r
-			local d_len = math.sqrt(dx*dx+dy*dy)
+			local d_len = ksa.hypot(dx, dy)
 			local r = head_wid/d_len
 			local hdx = dy * r
 			local hdy = -dx * r
@@ -172,7 +172,7 @@ local x0, y0 = pos[1], pos[2]
 for i2=2,(n-1)*2,2 do
 	local x1, y1 = pos[i2+1], pos[i2+2]
 	local dxr, dyr = x1-x0, y1-y0
-	local d_len = math.sqrt(dxr*dxr+dyr*dyr)
+	local d_len = ksa.hypot(dxr, dyr)
 	local dx = dyr*lw/d_len
 	local dy = -dxr*lw/d_len
 	obj.drawpoly(x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0)
@@ -190,6 +190,76 @@ for i2=2,(n-2)*2,2 do
 	local x0, y0 = pos[i2+1], pos[i2+2]
 	ksa.drawrect(x0-lw, y0-lw, x0+lw, y0+lw)
 end
+
+obj.setoption("blend", 0)
+obj.copybuffer("obj", "tmp")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@—¼–îˆó
+--track0:ü•,1,1000,20,1
+--track1:èV’·,0,3000,600
+--track2:èV•,100,1000,300
+--dialog:F/col,local col=0x66cc00;À•W,a_pos={-100,0,100,0};
+
+local ksa = require("ksa")
+
+local lw = obj.track0/2
+local head_len = lw*obj.track1/100
+local head_wid = lw*obj.track2/100
+local n = 2
+obj.setanchor("a_pos", n, "line")
+
+-- ’¸“_ŒvŽZ
+local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+local dx, dy = x1-x0, y1-y0
+local d_len = ksa.hypot(dx, dy)
+local r = lw/d_len
+local bdx, bdy = dy*r, -dx*r
+local r = (head_len*(1+lw/head_wid)/2)/d_len
+local xx, yy = x0+dx*r, y0+dy*r
+local bx0a, by0a, bx0b, by0b = xx+bdx, yy+bdy, xx-bdx, yy-bdy
+local xx, yy = x1-dx*r, y1-dy*r
+local bx1a, by1a, bx1b, by1b = xx+bdx, yy+bdy, xx-bdx, yy-bdy
+local r = head_wid/d_len
+local hdx, hdy = dy*r, -dx*r
+local r = head_len/d_len
+local xx, yy = x0+dx*r, y0+dy*r
+local hx0a, hy0a, hx0b, hy0b = xx+hdx, yy+hdy, xx-hdx, yy-hdy
+local xx, yy = x1-dx*r, y1-dy*r
+local hx1a, hy1a, hx1b, hy1b = xx+hdx, yy+hdy, xx-hdx, yy-hdy
+
+-- ‰¼‘zƒoƒbƒtƒ@
+local xx0, yy0, xx1, yy1 = x0, y0, x0, y0
+for i,e in ipairs({x1, hx0a, hx0b, hx1a, hx1b}) do
+	if e < xx0 then
+		xx0 = e
+	elseif xx1 < e then
+		xx1 = e
+	end
+end
+for i,e in ipairs({y1, hy0a, hy0b, hy1a, hy1b}) do
+	if e < yy0 then
+		yy0 = e
+	elseif yy1 < e then
+		yy1 = e
+	end
+end
+local ox, oy = (xx0+xx1)/2, (yy0+yy1)/2
+
+x0, y0, x1, y1 = x0-ox, y0-oy, x1-ox, y1-oy
+bx0a, by0a, bx0b, by0b = bx0a-ox, by0a-oy, bx0b-ox, by0b-oy
+bx1a, by1a, bx1b, by1b = bx1a-ox, by1a-oy, bx1b-ox, by1b-oy
+hx0a, hy0a, hx0b, hy0b = hx0a-ox, hy0a-oy, hx0b-ox, hy0b-oy
+hx1a, hy1a, hx1b, hy1b = hx1a-ox, hy1a-oy, hx1b-ox, hy1b-oy
+
+obj.setoption("drawtarget", "tempbuffer", math.ceil(xx1-xx0+2),math.ceil(yy1-yy0+2))
+obj.setoption("blend", "alpha_add")
+obj.load("figure", "ŽlŠpŒ`", col, 1)
+
+-- •`‰æ
+obj.drawpoly(bx0a,by0a,0, bx0b,by0b,0, bx1b,by1b,0, bx1a,by1a,0)
+ksa.drawtri(x0, y0, hx0a, hy0a, hx0b, hy0b)
+ksa.drawtri(x1, y1, hx1a, hy1a, hx1b, hy1b)
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
@@ -241,6 +311,76 @@ if ( round ) then
 else
 	ksa.drawrect(x0-lw, y0-lw, x1+lw, y0+lw)
 	ksa.drawrect(x0-lw, y1-lw, x1+lw, y1+lw)
+end
+
+obj.setoption("blend", 0)
+obj.copybuffer("obj", "tmp")
+obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+
+@‘È‰~˜g
+--track0:ü•,1,1000,20,1
+--track1:ƒAƒ“ƒJ[”,1,2,2,1
+--track2:ƒ^ƒCƒv,0,1,0,1
+--track3:•ªŠ„”,4,1000,128,1
+--dialog:F/col,local col=0x66cc00;À•W,a_pos={-100,-100,100,100};
+
+local ksa = require("ksa")
+
+local lw, n = obj.track0/2, obj.track3
+local fx0, fy0, fx1, fy1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+if ( obj.track1 == 2 ) then
+	obj.setanchor("a_pos", 2, "line")
+else
+	obj.setanchor("a_pos", 1, "arm")
+	fx1, fy1 = -fx0, -fy0
+end
+
+-- ‰¼‘zƒoƒbƒtƒ@
+local ox, oy = (fx0+fx1)/2, (fy0+fy1)/2
+fx0, fy0, fx1, fy1 = fx0-ox, fy0-oy, fx1-ox, fy1-oy
+if ( fx1 < fx0 ) then
+	fx0, fx1 = fx1, fx0
+end
+if ( fy1 < fy0 ) then
+	fy0, fy1 = fy1, fy0
+end
+obj.setoption("drawtarget","tempbuffer",math.ceil(fx1+lw+1)*2, math.ceil(fy1+lw+1)*2)
+
+-- •`‰æ
+if obj.track2 == 0 then
+	obj.setoption("blend", "alpha_add")
+	local smax, smin
+	if fx1 < fy1 then
+		smax, smin = fy1, fx1
+	else
+		smax, smin = fx1, fy1
+	end
+	obj.load("figure", "‰~", col, smax*8)
+	ksa.drawrect(fx0-lw, fy0-lw, fx1+lw, fy1+lw)
+	obj.setoption("blend", "alpha_sub")
+	local wx, wy = lw*fx1/smin, lw*fy1/smin
+	ksa.drawrect(fx0+wx, fy0+wy, fx1-wx, fy1-wy)
+else
+	-- ü•`‰æ
+	obj.setoption("blend", "alpha_add")
+	obj.load("figure", "ŽlŠpŒ`", col, 1)
+	local x0, y0 = fx1, 0
+	for i=1,n do
+		local x1, y1 = fx1*math.cos(2*math.pi*i/n), fy1*math.sin(2*math.pi*i/n)
+		local dxr, dyr = x1-x0, y1-y0
+		local d_len = ksa.hypot(dxr, dyr)
+		local dx = dyr*lw/d_len
+		local dy = -dxr*lw/d_len
+		obj.drawpoly(x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0)
+		x0, y0 = x1, y1
+	end
+
+	-- Ü‚ê“_•`‰æ
+	obj.load("figure", "‰~", col, lw*8)
+	for i=1,n do
+		local x0, y0 = fx1*math.cos(2*math.pi*i/n), fy1*math.sin(2*math.pi*i/n)
+		ksa.drawrect(x0-lw, y0-lw, x0+lw, y0+lw)
+	end
 end
 
 obj.setoption("blend", 0)
