@@ -214,7 +214,7 @@ Lanczos3リサイズの倍化専用版．ただしそれほど速くならない
 
 ## 加減速移動
 本家の加減速移動がバグっているので追加した加減速移動スクリプト．
-パラメータの値 (デフォルト：`5`) によって，次の多項式に比例した形で変化させます．
+パラメータの値 (デフォルト：`5`) によって，次の式に比例した形で変化させます．
 
 |パラメータ|式|満たす条件|
 |:-|:-|:-|
@@ -226,4 +226,4 @@ Lanczos3リサイズの倍化専用版．ただしそれほど速くならない
 |`5`|<img src="https://latex.codecogs.com/gif.latex?\big(2&plus;\cos(\pi&space;x)\big)\big(\!\sin(\pi&space;x/2)\big)^4" title="\big(2+\cos(\pi x)\big)\big(\!\sin(\pi x/2)\big)^4" />|躍度が連続|
 |`6`|<img src="https://latex.codecogs.com/gif.latex?\begin{cases}&space;\&space;2x^2&space;&&space;0\leq&space;x&space;<&space;1/2&space;\\&space;\&space;-1-2(-2&plus;x)&space;x&space;&&space;1/2\leq&space;x&space;\leq&space;1&space;\end{cases}" title="\begin{cases} \ 2x^2 & 0\leq x < 1/2 \\ \ -1-2(-2+x) x & 1/2\leq x \leq 1 \end{cases}" />|速度が連続|
 
-「速度が連続」＜「加速度が連続」＜「躍度が連続」の順になめらかになっていき，滑らかさでない順に並べると`6`<`0`<`3`<`1`<`4`<`2`<`5`となります．
+「速度が連続」＜「加速度が連続」＜「躍度が連続」の順になめらかになっていき，滑らかでない順に並べると`6`<`0`<`3`<`1`<`4`<`2`<`5`となります．
