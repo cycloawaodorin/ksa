@@ -223,3 +223,49 @@ if ( r < t1 ) then
 		obj.alpha = 0.0
 	end
 end
+
+@スクロール
+--track0:再生位置,0,100,0,0.01
+--track1:縦/横,0,1,0,1
+--track2:表示長,0,10000,100,1
+--track3:拡大,0,1,0,1
+
+local ksa = require("ksa")
+local pos = obj.track0/100.0
+local vh = obj.track1==0
+local size = obj.track2
+local extend = obj.track3==1
+
+if ( vh ) then
+	if ( extend ) then
+		obj.effect("領域拡張", "上", size, "下", size, "左", 0, "右", 0, "塗りつぶし", 0)
+	end
+	if ( obj.h < size ) then
+		size = obj.h
+	end
+	local cut = obj.h-size
+	local top, bottom = ksa.round(cut*pos), ksa.round(cut*(1-pos))
+	local r = cut - ( top + bottom )
+	if ( bottom < top ) then
+		top = top + r
+	else
+		bottom = bottom + r
+	end
+	obj.effect("クリッピング", "上", top, "下", bottom, "左", 0, "右", 0, "中心の位置を変更", 1)
+else
+	if ( extend ) then
+		obj.effect("領域拡張", "上", 0, "下", 0, "左", size, "右", size, "塗りつぶし", 0)
+	end
+	if ( obj.w < size ) then
+		size = obj.w
+	end
+	local cut = obj.w-size
+	local left, right = ksa.round(cut*pos), ksa.round(cut*(1-pos))
+	local r = cut - ( left + right )
+	if ( right < left ) then
+		left = left + r
+	else
+		right = right + r
+	end
+	obj.effect("クリッピング", "上", 0, "下", 0, "左", left, "右", right, "中心の位置を変更", 1)
+end
