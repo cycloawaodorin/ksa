@@ -43,4 +43,8 @@ ksa.hypot = function(x, y)
 	end
 end
 
+ksa.log = function(fmt,...)
+	debug_print(string.format(tostring(fmt).."",...))
+end
+
 return ksa
