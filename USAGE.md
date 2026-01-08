@@ -232,12 +232,12 @@ Lanczos3リサイズの倍化専用版．ただしそれほど速くならない
 
 |パラメータ|式|満たす条件|
 |:-|:-|:-|
-|`0`|<img src="https://latex.codecogs.com/gif.latex?x^2(3-2x)" title="x^2(3-2x)" />|速度が連続|
-|`1`|<img src="https://latex.codecogs.com/gif.latex?x^3(10&plus;3x(-5&plus;2x)))" title="x^3(10+3x(-5+2x)))" />|加速度が連続|
-|`2`|<img src="https://latex.codecogs.com/gif.latex?x^4(35-2x(42&plus;5x(-7&plus;2x)))))" title="x^4(35-2x(42+5x(-7+2x)))))" />|躍度が連続|
-|`3`|<img src="https://latex.codecogs.com/gif.latex?\big(\!\sin(\pi&space;x/2)\big)^2" title="\big(\!\sin(\pi x/2)\big)^2" />|速度が連続|
-|`4`|<img src="https://latex.codecogs.com/gif.latex?x-\tfrac{\sin(2\pi&space;x)}{2\pi}" title="x-\tfrac{\sin(2\pi x)}{2\pi}" />|加速度が連続|
-|`5`|<img src="https://latex.codecogs.com/gif.latex?\big(2&plus;\cos(\pi&space;x)\big)\big(\!\sin(\pi&space;x/2)\big)^4" title="\big(2+\cos(\pi x)\big)\big(\!\sin(\pi x/2)\big)^4" />|躍度が連続|
-|`6`|<img src="https://latex.codecogs.com/gif.latex?\begin{cases}&space;\&space;2x^2&space;&&space;0\leq&space;x&space;<&space;1/2&space;\\&space;\&space;-1-2(-2&plus;x)&space;x&space;&&space;1/2\leq&space;x&space;\leq&space;1&space;\end{cases}" title="\begin{cases} \ 2x^2 & 0\leq x < 1/2 \\ \ -1-2(-2+x) x & 1/2\leq x \leq 1 \end{cases}" />|速度が連続|
+|`0`|$`x^2(3-2x)`$|速度が連続|
+|`1`|$`x^3(10+3x(-5+2x))`$|加速度が連続|
+|`2`|$`x^4(35-2x(42+5x(-7+2x)))`$|躍度が連続|
+|`3`|$`\big(\!\sin(\pi x/2)\big)^2`$|速度が連続|
+|`4`|$`x-\tfrac{\sin(2\pi x)}{2\pi}`$|加速度が連続|
+|`5`|$`\big(2+\cos(\pi x)\big)\big(\!\sin(\pi x/2)\big)^4`$|躍度が連続|
+|`6`|$`\begin{cases} \ 2x^2 & 0\leq x < 1/2 \\ \ -1-2x(-2+x) & 1/2\leq x \leq 1 \end{cases}`$|速度が連続|
 
 「速度が連続」＜「加速度が連続」＜「躍度が連続」の順になめらかになっていき，滑らかでない順に並べると`6`<`0`<`3`<`1`<`4`<`2`<`5`となります．
