@@ -454,6 +454,100 @@ ksa_clip_double(lua_State *L)
 	return 0;
 }
 
+// クリッピング & 画素平均法 拡大縮小
+class ClipResizeAve {
+private:
+	class XY {
+	public:
+		int src_size, dest_size, clip_start, clip_end, sc, dc;
+		using RANGE = struct {
+			int start, end;
+		};
+		void
+		calc_range(const int &dest, RANGE *range)
+		{
+			range->start = dest*dc;
+			range->end = (dest+1)*dc;
+		}
+		void
+		calc_params()
+		{
+			int ss = src_size-clip_start-clip_end;
+			int c = std::gcd(dest_size, ss);
+			sc = dest_size/c;
+			dc = ss/c;
+		}
+	};
+	void
+	interpolate(const int &dx, const int &dy)
+	{
+		XY::RANGE xrange, yrange;
+		x.calc_range(dx, &xrange);
+		y.calc_range(dy, &yrange);
+		std::int64_t b=0, g=0, r=0, a=0;
+		for ( int sy=(yrange.start); sy<(yrange.end); sy++ ) {
+			int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
+			for ( int sx=(xrange.start); sx<(xrange.end); sx++ ) {
+				const PIXEL_BGRA *s_px = src + ( xs+(sx/x.sc) );
+				std::int64_t wa=static_cast<std::int64_t>(s_px->a);
+				b += s_px->b*wa;
+				g += s_px->g*wa;
+				r += s_px->r*wa;
+				a += wa;
+			}
+		}
+		PIXEL_BGRA *d_px = dest + ( dy*(x.dest_size)+dx );
+		d_px->b = uc_cast(b, a);
+		d_px->g = uc_cast(g, a);
+		d_px->r = uc_cast(r, a);
+		d_px->a = uc_cast(a, w);
+	}
+public:
+	const PIXEL_BGRA *src;
+	PIXEL_BGRA *dest;
+	XY x, y;
+	std::int64_t w;
+	static void
+	invoke_interpolate(ClipResizeAve *p, const int &i, const int &n_th)
+	{
+		int y_start = ( i*(p->y.dest_size) )/n_th;
+		int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
+		for (int dy=y_start; dy<y_end; dy++) {
+			for (int dx=0; dx<(p->x.dest_size); dx++) {
+				p->interpolate(dx, dy);
+			}
+		}
+	}
+};
+static int
+ksa_clip_resize_ave(lua_State *L)
+{
+	// 引数受け取り
+	std::unique_ptr<ClipResizeAve> p(new ClipResizeAve());
+	int i=0;
+	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->x.src_size = lua_tointeger(L, ++i);
+	p->y.src_size = lua_tointeger(L, ++i);
+	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+	p->x.dest_size = lua_tointeger(L, ++i);
+	p->y.dest_size = lua_tointeger(L, ++i);
+	p->y.clip_start = lua_tointeger(L, ++i);
+	p->y.clip_end = lua_tointeger(L, ++i);
+	p->x.clip_start = lua_tointeger(L, ++i);
+	p->x.clip_end = lua_tointeger(L, ++i);
+	int n_th = n_th_correction(lua_tointeger(L, ++i));
+	
+	// パラメータ計算
+	p->x.calc_params();
+	p->y.calc_params();
+	p->w = static_cast<std::int64_t>((p->x.dc)*(p->y.dc));
+	
+	// 本処理
+	parallel_do(ClipResizeAve::invoke_interpolate, p.get(), n_th);
+	
+	return 0;
+}
+
 class DiNN {
 public:
 	PIXEL_BGRA *dest;

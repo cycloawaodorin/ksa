@@ -172,6 +172,30 @@ uc_cast(const float &x)
 		return static_cast<unsigned char>(std::round(x));
 	}
 }
+static unsigned char
+uc_cast(std::int64_t num, std::int64_t den)
+{
+	std::int64_t c = std::gcd(std::abs(num), std::abs(den));
+	if ( den < 0 ) {
+		num = -num/c;
+		den = -den/c;
+	} else {
+		num = num/c;
+		den = den/c;
+	}
+	if ( num <= 0 ) {
+		return static_cast<unsigned char>(0);
+	} else if ( 255*den <= num ) {
+		return static_cast<unsigned char>(255);
+	} else {
+		std::int64_t r = num % den;
+		if ( r*2 < den ) {
+			return static_cast<unsigned char>((num-r)/den);
+		} else {
+			return static_cast<unsigned char>((num-r)/den+1);
+		}
+	}
+}
 static int
 n_th_correction(int n_th)
 {
