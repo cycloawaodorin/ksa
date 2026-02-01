@@ -47,7 +47,7 @@ public:
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator +(std::int64_t other)
+	operator +(const std::int64_t &other)
 	const {
 		return Rational(numerator+other*denominator, denominator);
 	}
@@ -59,7 +59,7 @@ public:
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator -(std::int64_t other)
+	operator -(const std::int64_t &other)
 	const {
 		return Rational(numerator-other*denominator, denominator);
 	}
@@ -71,7 +71,7 @@ public:
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
-	operator *(std::int64_t other)
+	operator *(const std::int64_t &other)
 	const {
 		std::int64_t c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
@@ -84,7 +84,7 @@ public:
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
-	operator /(std::int64_t other)
+	operator /(const std::int64_t &other)
 	const {
 		std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
@@ -155,7 +155,7 @@ parallel_do(void (*f)(T*, const int &, const int &), T *p, const int &n)
 }
 
 constexpr float PI = 3.141592653589793f;
-using PIXEL_BGRA = struct pixel_bgra {
+struct PIXEL_BGRA {
 	alignas(1) unsigned char b;
 	alignas(1) unsigned char g;
 	alignas(1) unsigned char r;
