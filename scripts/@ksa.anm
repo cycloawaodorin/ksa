@@ -114,45 +114,6 @@ else
 	obj.copybuffer("obj", "tmp")
 end
 
-@クリッピング&倍角化
---track0:上,0,2000,0,1
---track1:下,0,2000,0,1
---track2:左,0,2000,0,1
---track3:右,0,2000,0,1
---dialog:スレッド数,local n_th=-1;
-local ct, cb, cl, cr = obj.track0, obj.track1, obj.track2, obj.track3
-
-local ksa = require("ksa")
-local src, sw, sh = obj.getpixeldata("alloc")
-local dw, dh = (sw-cl-cr)*2, (sh-ct-cb)*2
-if ( ( cl+cr < sw ) and ( ct+cb < sh ) ) then
-	obj.setoption("drawtarget", "tempbuffer", dw, dh)
-	obj.copybuffer("obj", "tmp")
-	local dest, _dw, _dh = obj.getpixeldata()
-	if ( _dw < dw ) then
-		local clr = math.ceil( (dw-_dw)/4 )
-		cl = cl+clr
-		cr = cr+clr
-		dw = (sw-cl-cr)*2
-	end
-	if ( _dh < dh ) then
-		local ctb = math.ceil( (dh-_dh)/4 )
-		ct = ct+ctb
-		cb = cb+ctb
-		dh = (sh-ct-cb)*2
-	end
-	if ( dw ~= _dw or dh ~= _dh ) then
-		obj.setoption("drawtarget", "tempbuffer", dw, dh)
-		obj.copybuffer("obj", "tmp")
-		dest, _dw, _dh = obj.getpixeldata()
-	end
-	ksa.clip_double(src, sw, sh, dest, ct, cb, cl, cr, n_th)
-	obj.putpixeldata(dest)
-else
-	obj.setoption("drawtarget", "tempbuffer", 1, 1)
-	obj.copybuffer("obj", "tmp")
-end
-
 @インターレース解除
 --track0:解除法,0,4,2,1
 --track1:BFF/TFF,0,1,1,1

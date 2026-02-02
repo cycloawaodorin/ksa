@@ -30,8 +30,8 @@ ksa_trsgrad(lua_State *L)
 	std::unique_ptr<Trsgrad> p(new Trsgrad);
 	p->cx = static_cast<float>(lua_tonumber(L, ++i));
 	p->cy = static_cast<float>(lua_tonumber(L, ++i));
-	float angle = static_cast<float>(lua_tonumber(L, ++i));
-	float gwidth = static_cast<float>(lua_tonumber(L, ++i));
+	const float angle = static_cast<float>(lua_tonumber(L, ++i));
+	const float gwidth = static_cast<float>(lua_tonumber(L, ++i));
 	p->a0 = static_cast<float>(lua_tonumber(L, ++i));
 	p->a1 = static_cast<float>(lua_tonumber(L, ++i));
 	p->type = lua_tointeger(L, ++i);
@@ -154,7 +154,7 @@ public:
 	int w, h, t, b, l, r, type;
 	bool round;
 	static void
-	invoke(Edgegrad *p, const int &i, const int &n_th)
+	invoke(Edgegrad *p, int i, const int &n_th)
 	{
 		if ( i == 0 ) {
 			p->corner();
@@ -300,13 +300,13 @@ public:
 	PIXEL_BGRA *dest;
 	XY x, y;
 	static void
-	invoke_set_weights(ClipResize *p, const int &i, const int &n_th)
+	invoke_set_weights(ClipResize *p, int i, const int &n_th)
 	{
 		p->x.set_weights(( i*(p->x.var) )/n_th, ( (i+1)*(p->x.var) )/n_th);
 		p->y.set_weights(( i*(p->y.var) )/n_th, ( (i+1)*(p->y.var) )/n_th);
 	}
 	static void
-	invoke_interpolate(ClipResize *p, const int &i, const int &n_th)
+	invoke_interpolate(ClipResize *p, int i, const int &n_th)
 	{
 		const int y_start = ( i*(p->y.dest_size) )/n_th;
 		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
@@ -346,114 +346,6 @@ ksa_clip_resize(lua_State *L)
 	return 0;
 }
 
-// クリッピング&倍角
-class ClipDouble {
-private:
-	struct RANGE {
-		int start, end;
-		const float *weights;
-	};
-	constexpr static void
-	calc_range(RANGE *range, const int &dxy, const int &clip_start, const int &smax)
-	{
-		if ( dxy%2 == 0 ) {
-			range->start = dxy/2 - 3 + clip_start;
-			range->end = dxy/2 + 2 + clip_start;
-		} else {
-			range->start = dxy/2 - 2 + clip_start;
-			range->end = dxy/2 + 3 + clip_start;
-		}
-		int skipped=0;
-		if ( range->start < clip_start ) {
-			skipped = clip_start - range->start;
-			range->start = clip_start;
-		}
-		if ( dxy%2 == 0 ) {
-			range->weights = WEIGHTS_E + skipped;
-		} else {
-			range->weights = WEIGHTS_O + skipped;
-		}
-		if ( smax < range->end ) {
-			range->end = smax;
-		}
-	}
-	void
-	interpolate(const int &dx, const int &dy)
-	{
-		RANGE xrange, yrange;
-		calc_range(&xrange, dx, cl, sw-cr-1);
-		calc_range(&yrange, dy, ct, sh-cb-1);
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		for ( int sy=yrange.start; sy<=yrange.end; sy++ ) {
-			const float wy = yrange.weights[ sy - yrange.start ];
-			for ( int sx=xrange.start; sx<=xrange.end; sx++ ) {
-				const float wxy = wy*xrange.weights[ sx - xrange.start ];
-				const PIXEL_BGRA *s_px = src + ( sy*sw+sx );
-				const float wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
-				r += s_px->r*wxya;
-				a += wxya;
-				w += wxy;
-			}
-		}
-		PIXEL_BGRA *d_px = dest + ( dy*dw+dx );
-		d_px->b = uc_cast(b/a);
-		d_px->g = uc_cast(g/a);
-		d_px->r = uc_cast(r/a);
-		d_px->a = uc_cast(a/w);
-	}
-public:
-	static const float WEIGHTS_E[6], WEIGHTS_O[6];
-	const PIXEL_BGRA *src;
-	PIXEL_BGRA *dest;
-	int sw, sh, dw, dh, ct, cb, cl, cr;
-	static void
-	invoke_interpolate(ClipDouble *p, const int &i, const int &n_th)
-	{
-		const int y_start = ( i*(p->dh) )/n_th;
-		const int y_end = ( (i+1)*(p->dh) )/n_th;
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->dw); dx++) {
-				p->interpolate(dx, dy);
-			}
-		}
-	}
-};
-constexpr const float ClipDouble::WEIGHTS_E[] = {
-	0.007355926047194188f, -0.0677913359005429f, 0.27018982304623407f,
-	0.8900670517104946f, -0.13287101836506404f, 0.03002109144958156f
-};
-constexpr const float ClipDouble::WEIGHTS_O[] = {
-	0.03002109144958156f, -0.13287101836506404f, 0.8900670517104946f,
-	0.27018982304623407f, -0.0677913359005429f, 0.007355926047194188f
-};
-static int
-ksa_clip_double(lua_State *L)
-{
-	// 引数受け取り
-	std::unique_ptr<ClipDouble> p(new ClipDouble());
-	int i=0;
-	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->sw = lua_tointeger(L, ++i);
-	p->sh = lua_tointeger(L, ++i);
-	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	p->ct = lua_tointeger(L, ++i);
-	p->cb = lua_tointeger(L, ++i);
-	p->cl = lua_tointeger(L, ++i);
-	p->cr = lua_tointeger(L, ++i);
-	const int n_th = n_th_correction(lua_tointeger(L, ++i));
-	
-	// パラメータ計算
-	p->dw = (p->sw - p->cl - p->cr)*2;
-	p->dh = (p->sh - p->ct - p->cb)*2;
-	
-	// 本処理
-	parallel_do(ClipDouble::invoke_interpolate, p.get(), n_th);
-	
-	return 0;
-}
-
 // クリッピング & 画素平均法 拡大縮小
 class ClipResizeAve {
 private:
@@ -486,10 +378,10 @@ private:
 		y.calc_range(dy, &yrange);
 		std::int64_t b=0, g=0, r=0, a=0;
 		for ( int sy=(yrange.start); sy<(yrange.end); sy++ ) {
-			int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
+			const int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( int sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const PIXEL_BGRA *s_px = src + ( xs+(sx/x.sc) );
-				std::int64_t wa=static_cast<std::int64_t>(s_px->a);
+				const std::int64_t wa=static_cast<std::int64_t>(s_px->a);
 				b += s_px->b*wa;
 				g += s_px->g*wa;
 				r += s_px->r*wa;
@@ -508,10 +400,10 @@ public:
 	XY x, y;
 	std::int64_t w;
 	static void
-	invoke_interpolate(ClipResizeAve *p, const int &i, const int &n_th)
+	invoke_interpolate(ClipResizeAve *p, int i, const int &n_th)
 	{
-		int y_start = ( i*(p->y.dest_size) )/n_th;
-		int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
+		const int y_start = ( i*(p->y.dest_size) )/n_th;
+		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
 		for (int dy=y_start; dy<y_end; dy++) {
 			for (int dx=0; dx<(p->x.dest_size); dx++) {
 				p->interpolate(dx, dy);
@@ -623,10 +515,10 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiSpatial *p, const int &i, const int &n_th)
+	invoke_interpolate(DiSpatial *p, int i, const int &n_th)
 	{
-		int x_start = ( i*(p->w) )/n_th;
-		int x_end = ( (i+1)*(p->w) )/n_th;
+		const int x_start = ( i*(p->w) )/n_th;
+		const int x_end = ( (i+1)*(p->w) )/n_th;
 		if ( p->top ) {
 			for (int y=0; y<p->h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
@@ -692,7 +584,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiTemporal *p, const int &i, const int &n_th)
+	invoke_interpolate(DiTemporal *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -818,7 +710,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate0(DiGhost *p, const int &i, const int &n_th)
+	invoke_interpolate0(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -837,7 +729,7 @@ public:
 		}
 	}
 	static void
-	invoke_interpolate1(DiGhost *p, const int &i, const int &n_th)
+	invoke_interpolate1(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -856,7 +748,7 @@ public:
 		}
 	}
 	static void
-	invoke_mix(DiGhost *p, const int &i, const int &n_th)
+	invoke_mix(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;

@@ -1,9 +1,7 @@
 #include "lua/lua.hpp"
-#include <memory>
 #include <thread>
 #include <numeric>
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 
 namespace KSA {
@@ -42,8 +40,8 @@ public:
 	Rational
 	operator +(const Rational &other)
 	const {
-		std::int64_t c = std::gcd(denominator, other.denominator);
-		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::int64_t c = std::gcd(denominator, other.denominator);
+		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
 	Rational
@@ -54,8 +52,8 @@ public:
 	Rational
 	operator -(const Rational &other)
 	const {
-		std::int64_t c = std::gcd(denominator, other.denominator);
-		std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::int64_t c = std::gcd(denominator, other.denominator);
+		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
 	Rational
@@ -66,27 +64,27 @@ public:
 	Rational
 	operator *(const Rational &other)
 	const {
-		std::int64_t ca = std::gcd(std::abs(numerator), other.denominator);
-		std::int64_t cb = std::gcd(denominator, std::abs(other.numerator));
+		const std::int64_t ca = std::gcd(std::abs(numerator), other.denominator);
+		const std::int64_t cb = std::gcd(denominator, std::abs(other.numerator));
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
 	operator *(const std::int64_t &other)
 	const {
-		std::int64_t c = std::gcd(std::abs(other), denominator);
+		const std::int64_t c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
 	}
 	Rational
 	operator /(const Rational &other)
 	const {
-		std::int64_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
-		std::int64_t cb = std::gcd(denominator, other.denominator);
+		const std::int64_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
+		const std::int64_t cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
 	operator /(const std::int64_t &other)
 	const {
-		std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
+		const std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
 	Rational
@@ -97,7 +95,7 @@ public:
 	std::int64_t
 	floor()
 	const {
-		std::int64_t r = numerator % denominator;
+		const std::int64_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
@@ -107,7 +105,7 @@ public:
 	std::int64_t
 	floor_eps()
 	const {
-		std::int64_t r = numerator % denominator;
+		const std::int64_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
@@ -117,7 +115,7 @@ public:
 	std::int64_t
 	ceil()
 	const {
-		std::int64_t r = numerator % denominator;
+		const std::int64_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -127,7 +125,7 @@ public:
 	std::int64_t
 	ceil_eps()
 	const {
-		std::int64_t r = numerator % denominator;
+		const std::int64_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -143,7 +141,7 @@ public:
 
 template <class T>
 static void
-parallel_do(void (*f)(T*, const int &, const int &), T *p, const int &n)
+parallel_do(void (*f)(T*, int, const int &), T *p, const int &n)
 {
 	std::unique_ptr<std::thread[]> threads(new std::thread[n]);
 	for (int i=0; i<n; i++) {
@@ -154,7 +152,7 @@ parallel_do(void (*f)(T*, const int &, const int &), T *p, const int &n)
 	}
 }
 
-constexpr float PI = 3.141592653589793f;
+constexpr static const float PI = 3.141592653589793f;
 struct PIXEL_BGRA {
 	alignas(1) unsigned char b;
 	alignas(1) unsigned char g;
@@ -212,7 +210,7 @@ n_th_correction(int n_th)
 
 };
 
-static constexpr luaL_Reg ksa_ext[] = {
+constexpr static const luaL_Reg ksa_ext[] = {
 #include "functions.c"
 	{ nullptr, nullptr }
 };
