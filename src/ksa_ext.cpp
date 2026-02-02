@@ -154,7 +154,7 @@ public:
 	int w, h, t, b, l, r, type;
 	bool round;
 	static void
-	invoke(Edgegrad *p, const int &i, const int &n_th)
+	invoke(Edgegrad *p, int i, const int &n_th)
 	{
 		if ( i == 0 ) {
 			p->corner();
@@ -300,13 +300,13 @@ public:
 	PIXEL_BGRA *dest;
 	XY x, y;
 	static void
-	invoke_set_weights(ClipResize *p, const int &i, const int &n_th)
+	invoke_set_weights(ClipResize *p, int i, const int &n_th)
 	{
 		p->x.set_weights(( i*(p->x.var) )/n_th, ( (i+1)*(p->x.var) )/n_th);
 		p->y.set_weights(( i*(p->y.var) )/n_th, ( (i+1)*(p->y.var) )/n_th);
 	}
 	static void
-	invoke_interpolate(ClipResize *p, const int &i, const int &n_th)
+	invoke_interpolate(ClipResize *p, int i, const int &n_th)
 	{
 		const int y_start = ( i*(p->y.dest_size) )/n_th;
 		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
@@ -400,7 +400,7 @@ public:
 	XY x, y;
 	std::int64_t w;
 	static void
-	invoke_interpolate(ClipResizeAve *p, const int &i, const int &n_th)
+	invoke_interpolate(ClipResizeAve *p, int i, const int &n_th)
 	{
 		const int y_start = ( i*(p->y.dest_size) )/n_th;
 		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
@@ -515,7 +515,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiSpatial *p, const int &i, const int &n_th)
+	invoke_interpolate(DiSpatial *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -584,7 +584,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate(DiTemporal *p, const int &i, const int &n_th)
+	invoke_interpolate(DiTemporal *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -710,7 +710,7 @@ public:
 	int w, h;
 	bool top;
 	static void
-	invoke_interpolate0(DiGhost *p, const int &i, const int &n_th)
+	invoke_interpolate0(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -729,7 +729,7 @@ public:
 		}
 	}
 	static void
-	invoke_interpolate1(DiGhost *p, const int &i, const int &n_th)
+	invoke_interpolate1(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
@@ -748,7 +748,7 @@ public:
 		}
 	}
 	static void
-	invoke_mix(DiGhost *p, const int &i, const int &n_th)
+	invoke_mix(DiGhost *p, int i, const int &n_th)
 	{
 		const int x_start = ( i*(p->w) )/n_th;
 		const int x_end = ( (i+1)*(p->w) )/n_th;
