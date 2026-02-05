@@ -23,6 +23,7 @@ static void
 ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 10) ) { return; }
 	int i=0;
 	PIXEL_RGBA *data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	const int w = param->get_param_int(i++);
@@ -170,6 +171,7 @@ public:
 static void
 ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 {
+	if ( check_arg_num(param, 9) ) { return; }
 	int i=0;
 	std::unique_ptr<Edgegrad> p(new Edgegrad);
 	p->data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -317,6 +319,7 @@ static void
 ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 11) ) { return; }
 	std::unique_ptr<ClipResize> p(new ClipResize());
 	int i=0;
 	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -409,6 +412,7 @@ static void
 ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 11) ) { return; }
 	std::unique_ptr<ClipResizeAve> p(new ClipResizeAve());
 	int i=0;
 	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -455,6 +459,7 @@ static void
 ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 4) ) { return; }
 	std::unique_ptr<DiNN> p(new DiNN());
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -532,6 +537,7 @@ static void
 ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 5) ) { return; }
 	std::unique_ptr<DiSpatial> p(new DiSpatial());
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -595,6 +601,7 @@ static void
 ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 7) ) { return; }
 	std::unique_ptr<DiTemporal> p(new DiTemporal());
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -749,6 +756,7 @@ static void
 ksa_deinterlace_ghost(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
+	if ( check_arg_num(param, 7) ) { return; }
 	std::unique_ptr<DiGhost> p(new DiGhost());
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));

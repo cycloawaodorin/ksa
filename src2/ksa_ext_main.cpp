@@ -205,6 +205,19 @@ n_th_correction(int n_th)
 	return n_th;
 }
 
+static bool
+check_arg_num(SCRIPT_MODULE_PARAM* param, const int n)
+{
+	auto n_given=param->get_param_num();
+	if ( n != n_given ) {
+		static std::string str=std::format("number of arguments must be {}, but {} given", n, n_given);
+		param->set_error(str.c_str());
+		return true;
+	} else {
+		return false;
+	}
+}
+
 #include "ksa_ext.cpp"
 
 };
