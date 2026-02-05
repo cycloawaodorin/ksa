@@ -31,5 +31,5 @@ release:
 	make all
 	strip $(TARGET)
 	cp -f $(TARGET) ../ksa
-	zip -r ../ksa.zip ../ksa
+	$(SH) makezip.sh ksa
 	make clean

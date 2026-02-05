@@ -31,9 +31,5 @@ release:
 	make all
 	strip $(TARGET)
 	cp -f $(TARGET) ../ksa2
-	mkdir Script
-	mkdir Script/KSA
-	cp ../ksa2/* Script/KSA
-	zip -r ../ksa2.au2pkg.zip Script
-	$(RM) -r Script
+	$(SH) makezip.sh ksa
 	make clean
