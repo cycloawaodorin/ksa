@@ -1,0 +1,16 @@
+--label:KSA
+--track@gw:幅,0,1000,10,1
+--check@round:角丸,true
+--track@type:タイプ,0,1,1,1
+--group:追加,false
+--track@pt:上,0,1000,0,1
+--track@pb:下,0,1000,0,1
+--track@pl:左,0,1000,0,1
+--track@pr:右,0,1000,0,1
+--group
+
+local ksa = require("ksa")
+
+local data, w, h = obj.getpixeldata("object")
+ksa.edgegrad(data, w, h, gw+pt, gw+pb, gw+pl, gw+pr, round, type)
+obj.putpixeldata("object", data, w, h)

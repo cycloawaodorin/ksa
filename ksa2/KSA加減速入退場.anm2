@@ -1,0 +1,18 @@
+--label:KSA
+--track@t0:入場,0,10,1,0.01
+--track@t1:退場,0,10,1,0.01
+--track@dx:X,-10000,10000,0,1
+--track@dy:Y,-10000,10000,0,1
+
+local r = (t0-obj.time)/t0
+if ( 0 < r ) then
+	r = r*r
+	obj.ox = obj.ox + dx*r
+	obj.oy = obj.oy + dy*r
+end
+local r = (t1-obj.totaltime+obj.time)/t1
+if ( 0 < r ) then
+	r = r*r
+	obj.ox = obj.ox + dx*r
+	obj.oy = obj.oy + dy*r
+end

@@ -1,0 +1,23 @@
+--label:KSA
+--track@t0:入場,0,100,5,1
+--track@t1:退場,0,100,5,1
+--track@on:点長,1,1000,2,1
+--track@off:滅長,1,1000,2,1
+
+local onoff = on + off
+t0 = onoff*t0
+t1 = onoff*t1
+
+local r = obj.frame
+if ( r < t0 ) then
+	if ( on <= ( r % onoff ) ) then
+		obj.alpha = 0.0
+	end
+end
+
+local r = obj.totalframe - r - 1
+if ( r < t1 ) then
+	if ( on <= ( r % onoff ) ) then
+		obj.alpha = 0.0
+	end
+end

@@ -1,0 +1,208 @@
+--label:KSA
+--track@lw:線幅,1,1000,20,1
+--track@head_len:鏃長,0,3000,600
+--track@head_wid:鏃幅,100,1000,300
+--track@draw_ratio:描画率,0,100,100,0.01
+--color@col:色,0x66cc00
+--track@na:頂点数,2,100,2,1
+--value@a_pos:座標,{-100,0,100,0}
+
+local ksa = require("ksa")
+
+lw = lw/2
+head_len = lw*head_len/100
+head_wid = lw*head_wid/100
+obj.setanchor("a_pos", na, "line")
+draw_ratio = draw_ratio/100
+
+-- 描画用頂点計算
+local whole_length = 0
+local lens = {}
+local x0, y0 = a_pos[1], a_pos[2]
+for i=1,na-1 do
+	local x1, y1 = a_pos[i*2+1], a_pos[i*2+2]
+	local dx, dy = x1-x0, y1-y0
+	lens[i] = ksa.hypot(dx, dy)
+	whole_length = whole_length + lens[i]
+	x0, y0 = x1, y1
+end
+local draw_length = whole_length * draw_ratio
+local len = 0
+local n = 1
+local pos = {a_pos[1], a_pos[2]}
+local head = {}
+local nh = 1
+x0, y0 = a_pos[1], a_pos[2]
+local n_seg, n_break = 0, 0
+for i=1,na-1 do
+	len = len + lens[i]
+	n = n+1
+	local int i2 = i*2
+	x1, y1 = a_pos[i2+1], a_pos[i2+2]
+	if ( draw_length <= len ) then -- 最後の描画セグメントに到達
+		n_seg, n_break = n, n
+		local fseg_len = draw_length + lens[i] - len
+		local dx, dy = x1-x0, y1-y0
+		local r = fseg_len/lens[i]
+		head[1] = x0 + dx * r
+		head[2] = y0 + dy * r
+		if ( fseg_len < head_len ) then -- 最後のセグメントにおける描画長さが鏃長未満
+			n_seg = n_seg - 1
+			pos[i2+1] = x0
+			pos[i2+2] = y0
+			local d_len = ksa.hypot(dx, dy)
+			local r = fseg_len/head_len
+			if ( head_wid * r < lw ) then
+				r = lw/d_len
+			else
+				n_break = n_break - 1
+				r = head_wid*r/d_len
+			end
+			local hdx = dy * r
+			local hdy = -dx * r
+			head[3] = x0 + hdx
+			head[4] = y0 + hdy
+			head[5] = x0 - hdx
+			head[6] = y0 - hdy
+			local remain_len = head_len - fseg_len
+			local xx0, yy0 = a_pos[i2-3], a_pos[i2-2]
+			for j=i-1,1,-1 do -- 手前のセグメントにおける鏃頂点の計算
+				local j2 = j*2
+				if ( remain_len <= 0 ) then
+					break
+				else
+					nh = nh + 1
+					local nh6 = nh*6
+					local xx1, yy1 = a_pos[j2+1], a_pos[j2+2]
+					local dx = xx1-xx0
+					local dy = yy1-yy0
+					head[nh6-5] = xx1
+					head[nh6-4] = yy1
+					local d_len = ksa.hypot(dx, dy)
+					local draw_head_len
+					if ( remain_len < lens[j] ) then
+						draw_head_len = remain_len
+					else
+						draw_head_len = lens[j]
+					end
+					local r = 1-draw_head_len/lens[j]
+					local head_tail_x = xx0 + dx * r
+					local head_tail_y = yy0 + dy * r
+					local r = draw_head_len/head_len
+					if ( head_wid * r < lw ) then
+						r = lw/d_len
+					else
+						r = head_wid*r/d_len
+					end
+					local hdx = dy * r
+					local hdy = -dx * r
+					head[nh6-3] = head_tail_x + hdx
+					head[nh6-2] = head_tail_y + hdy
+					head[nh6-1] = head_tail_x - hdx
+					head[nh6] = head_tail_y - hdy
+					remain_len = remain_len - lens[j]
+					local r = 1-(draw_head_len-lw*0.5)/lens[j]
+					pos[j2+1], pos[j2+2] = xx0+dx*r, yy0+dy*r
+					xx0, yy0 = xx1, yy1
+				end
+			end
+		else -- 最後のセグメントにおける描画長さが鏃長以上
+			local r = ( fseg_len - head_len*(1+lw/head_wid)/2 )/lens[i]
+			pos[i2+1] = x0 + dx * r
+			pos[i2+2] = y0 + dy * r
+			local d_len = ksa.hypot(dx, dy)
+			local r = head_wid/d_len
+			local hdx = dy * r
+			local hdy = -dx * r
+			local r = ( fseg_len - head_len )/lens[i]
+			local xx1 = x0 + dx * r
+			local yy1 = y0 + dy * r
+			head[3] = xx1 + hdx
+			head[4] = yy1 + hdy
+			head[5] = xx1 - hdx
+			head[6] = yy1 - hdy
+		end
+		break
+	else
+		pos[i2+1] = x1
+		pos[i2+2] = y1
+		x0, y0 = x1, y1
+	end
+end
+
+-- 仮想バッファ
+local x0, x1 = pos[1]-lw, pos[1]+lw
+local y0, y1 = pos[2]-lw, pos[2]+lw
+for i2=2,(n_seg-1)*2,2 do
+	local x2, y2 = pos[i2+1], pos[i2+2]
+	if ( x2-lw < x0 ) then
+		x0 = x2-lw
+	elseif ( x1 < x2+lw ) then
+		x1 = x2+lw
+	end
+	if ( y2-lw < y0 ) then
+		y0 = y2-lw
+	elseif ( y1 < y2+lw ) then
+		y1 = y2+lw
+	end
+end
+for j6=0,(nh-1)*6,6 do
+	for i2=0,4,2 do
+		local x2, y2 = head[j6+i2+1], head[j6+i2+2]
+		if ( x2 < x0 ) then
+			x0 = x2
+		elseif ( x1 < x2 ) then
+			x1 = x2
+		end
+		if ( y2 < y0 ) then
+			y0 = y2
+		elseif ( y1 < y2 ) then
+			y1 = y2
+		end
+	end
+end
+local ox, oy = (x0+x1)/2, (y0+y1)/2
+
+for i2=0,(n-1)*2,2 do
+	pos[i2+1], pos[i2+2] = pos[i2+1]-ox, pos[i2+2]-oy
+end
+for j6=0,(nh-1)*6,6 do
+	for i2=0,4,2 do
+		head[j6+i2+1], head[j6+i2+2] = head[j6+i2+1]-ox, head[j6+i2+2]-oy
+	end
+end
+obj.setoption("drawtarget", "tempbuffer", math.ceil(x1-x0+2),math.ceil(y1-y0+2))
+obj.setoption("blend", "alpha_add")
+obj.load("figure", "四角形", col, 1)
+
+-- 線描画
+local x0, y0 = pos[1], pos[2]
+local v = {}
+for i2=2,(n_seg-1)*2,2 do
+	local x1, y1 = pos[i2+1], pos[i2+2]
+	local dxr, dyr = x1-x0, y1-y0
+	local d_len = ksa.hypot(dxr, dyr)
+	local dx = dyr*lw/d_len
+	local dy = -dxr*lw/d_len
+	table.insert(v, {x0-dx,y0-dy,0, x1-dx,y1-dy,0, x1+dx,y1+dy,0, x0+dx,y0+dy,0, 0,0, 1,0, 1,1, 0,1})
+	x0, y0 = x1, y1
+end
+
+-- 鏃描画
+for i6=0,(nh-1)*6,6 do
+	ksa.vert_tri(v, head[i6+1], head[i6+2], head[i6+3], head[i6+4], head[i6+5], head[i6+6])
+end
+obj.drawpoly(v)
+
+-- 折れ点描画
+obj.load("figure", "円", col, lw*8)
+v = {}
+for i2=2,(n_break-2)*2,2 do
+	local x0, y0 = pos[i2+1], pos[i2+2]
+	ksa.vert_rect(v, x0-lw, y0-lw, x0+lw, y0+lw)
+end
+ksa.drawvert(v)
+
+obj.setoption("blend", 0)
+obj.copybuffer("obj", "tmp")
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy

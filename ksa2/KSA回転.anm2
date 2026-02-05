@@ -1,0 +1,27 @@
+--label:KSA
+--track@mag:回転量,0,100,6,1
+--check@vert:縦回転,false
+--check@revs:反転,false
+
+local ksa = require("ksa")
+
+local angle = math.pi*mag*obj.frame/obj.totalframe
+if ( revs ) then
+	angle = -angle
+end
+local x0, x1, y0, y1
+if ( vert ) then
+	local dh = obj.h*math.sin(angle)
+	x0 = -obj.w/2
+	x1 = obj.w/2
+	y0 = -dh/2
+	y1 = dh/2
+else
+	local dw = obj.w*math.sin(angle)
+	x0 = -dw/2
+	x1 = dw/2
+	y0 = -obj.h/2
+	y1 = obj.h/2
+end
+
+ksa.drawrect(x0, y0, x1, y1)

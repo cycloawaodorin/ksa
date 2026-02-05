@@ -1,0 +1,4 @@
+LIBRARY ksa_ext
+
+EXPORTS
+	GetScriptModuleTable @1

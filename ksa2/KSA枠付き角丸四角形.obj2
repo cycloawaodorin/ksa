@@ -1,0 +1,89 @@
+--label:KSA
+--track@r:角半径,0,1000,0,1
+--track@fw:枠太さ,0,1000,0,1
+--track@falp:枠透明度,0,100,0
+--color@fcol:枠色,0x66cc00
+--track@alp:内透明度,0,100,0
+--color@col:内色,0x003300
+--check@single:シングルアンカー,false
+--value@a_pos:座標,{-100,-100,100,100}
+
+local ksa = require("ksa")
+
+alp = 1.0-alp/100.0
+falp = 1.0-falp/100.0
+local x0, y0, x1, y1 = a_pos[1], a_pos[2], a_pos[3], a_pos[4]
+if ( single ) then
+	obj.setanchor("a_pos", 1, "arm")
+	x1, y1 = -x0, -y0
+else
+	obj.setanchor("a_pos", 2, "line")
+end
+
+-- 仮想バッファ
+local ox, oy = (x0+x1)/2, (y0+y1)/2
+x0, y0, x1, y1 = x0-ox, y0-oy, x1-ox, y1-oy
+if ( x1 < x0 ) then
+	x0, x1 = x1, x0
+end
+if ( y1 < y0 ) then
+	y0, y1 = y1, y0
+end
+obj.setoption("drawtarget", "tempbuffer", math.ceil(x1+1)*2, math.ceil(y1+1)*2)
+
+r = math.min(x1, y1, r)
+local r2, r4, r8 = r*2, r*4, r*8
+fw = math.min(x1, y1, fw)
+
+-- 枠描画
+if ( fw ~= 0 and 0 < falp ) then
+	obj.load("figure", "四角形", fcol, 1)
+	obj.setoption("blend", "alpha_add")
+	local v = {}
+	ksa.vert_rect(v, x0+r, y0, x1-r, y0+fw)
+	ksa.vert_rect(v, x0, y0+r, x0+fw, y1-r)
+	ksa.vert_rect(v, x0+r, y1-fw, x1-r, y1)
+	ksa.vert_rect(v, x1-fw, y0+r, x1, y1-r)
+	obj.drawpoly(v, falp)
+	obj.load("figure", "円", fcol, r8)
+	v = {}
+	ksa.vert_rect(v, x0, y0, x0+r, y0+r, 0, 0, r4, r4)
+	ksa.vert_rect(v, x1-r, y0, x1, y0+r, r4, 0, r8, r4)
+	ksa.vert_rect(v, x1-r, y1-r, x1, y1, r4, r4, r8, r8)
+	ksa.vert_rect(v, x0, y1-r, x0+r, y1, 0, r4, r4, r8)
+	obj.drawpoly(v, falp)
+	
+	obj.setoption("blend", "alpha_sub")
+	x0, y0, x1, y1 = x0+fw, y0+fw, x1-fw, y1-fw
+	r = math.max(r-fw, 0)
+	r2, r4, r8 = r*2, r*4, r*8
+	obj.load("figure", "円", fcol, r8)
+	v = {}
+	ksa.vert_rect(v, x0, y0, x0+r, y0+r, 0, 0, r4, r4)
+	ksa.vert_rect(v, x1-r, y0, x1, y0+r, r4, 0, r8, r4)
+	ksa.vert_rect(v, x1-r, y1-r, x1, y1, r4, r4, r8, r8)
+	ksa.vert_rect(v, x0, y1-r, x0+r, y1, 0, r4, r4, r8)
+	obj.drawpoly(v, falp)
+end
+
+-- 内描画
+if ( 0 < alp ) then
+	obj.setoption("blend", "alpha_add")
+	obj.load("figure", "四角形", col, 1)
+	local v = {}
+	ksa.vert_rect(v, x0+r, y0, x1-r, y1)
+	ksa.vert_rect(v, x0, y0+r, x0+r, y1-r)
+	ksa.vert_rect(v, x1-r, y0+r, x1, y1-r)
+	obj.drawpoly(v, alp)
+	obj.load("figure", "円", col, r8)
+	v = {}
+	ksa.vert_rect(v, x0, y0, x0+r, y0+r, 0, 0, r4, r4)
+	ksa.vert_rect(v, x1-r, y0, x1, y0+r, r4, 0, r8, r4)
+	ksa.vert_rect(v, x1-r, y1-r, x1, y1, r4, r4, r8, r8)
+	ksa.vert_rect(v, x0, y1-r, x0+r, y1, 0, r4, r4, r8)
+	obj.drawpoly(v, alp)
+end
+
+obj.setoption("blend", "none")
+obj.copybuffer("obj", "tmp")
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy

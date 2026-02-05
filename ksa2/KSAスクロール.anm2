@@ -1,0 +1,46 @@
+--label:KSA
+--track@pos:再生位置,0,100,0,0.01
+--check@hol:横スクロール,false
+--track@size:表示長,0,10000,100,1
+--check@extend:拡大,true
+--check@auto:オート,true
+
+local ksa = require("ksa")
+pos = pos/100.0
+if ( auto ) then
+	pos = obj.frame/obj.totalframe
+end
+
+if ( hol ) then
+	if ( extend ) then
+		obj.effect("領域拡張", "上", 0, "下", 0, "左", size, "右", size, "塗りつぶし", 0)
+	end
+	if ( obj.w < size ) then
+		size = obj.w
+	end
+	local cut = obj.w-size
+	local left, right = ksa.round(cut*pos), ksa.round(cut*(1-pos))
+	local r = cut - ( left + right )
+	if ( right < left ) then
+		left = left + r
+	else
+		right = right + r
+	end
+	obj.effect("クリッピング", "上", 0, "下", 0, "左", left, "右", right, "中心の位置を変更", 1)
+else
+	if ( extend ) then
+		obj.effect("領域拡張", "上", size, "下", size, "左", 0, "右", 0, "塗りつぶし", 0)
+	end
+	if ( obj.h < size ) then
+		size = obj.h
+	end
+	local cut = obj.h-size
+	local top, bottom = ksa.round(cut*pos), ksa.round(cut*(1-pos))
+	local r = cut - ( top + bottom )
+	if ( bottom < top ) then
+		top = top + r
+	else
+		bottom = bottom + r
+	end
+	obj.effect("クリッピング", "上", top, "下", bottom, "左", 0, "右", 0, "中心の位置を変更", 1)
+end

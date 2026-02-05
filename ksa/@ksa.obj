@@ -31,18 +31,21 @@ local pos = {a_pos[1], a_pos[2]}
 local head = {}
 local nh = 1
 x0, y0 = a_pos[1], a_pos[2]
+local n_seg, n_break = 0, 0
 for i=1,na-1 do
 	len = len + lens[i]
 	n = n+1
 	local int i2 = i*2
 	x1, y1 = a_pos[i2+1], a_pos[i2+2]
 	if ( draw_length <= len ) then -- ÅŒã‚Ì•`‰æƒZƒOƒƒ“ƒg‚É“ž’B
+		n_seg, n_break = n, n
 		local fseg_len = draw_length + lens[i] - len
 		local dx, dy = x1-x0, y1-y0
 		local r = fseg_len/lens[i]
 		head[1] = x0 + dx * r
 		head[2] = y0 + dy * r
 		if ( fseg_len < head_len ) then -- ÅŒã‚ÌƒZƒOƒƒ“ƒg‚É‚¨‚¯‚é•`‰æ’·‚³‚ªèV’·–¢–ž
+			n_seg = n_seg - 1
 			pos[i2+1] = x0
 			pos[i2+2] = y0
 			local d_len = ksa.hypot(dx, dy)
@@ -50,6 +53,7 @@ for i=1,na-1 do
 			if ( head_wid * r < lw ) then
 				r = lw/d_len
 			else
+				n_break = n_break - 1
 				r = head_wid*r/d_len
 			end
 			local hdx = dy * r
@@ -95,6 +99,8 @@ for i=1,na-1 do
 					head[nh6-1] = head_tail_x - hdx
 					head[nh6] = head_tail_y - hdy
 					remain_len = remain_len - lens[j]
+					local r = 1-(draw_head_len-lw*0.5)/lens[j]
+					pos[j2+1], pos[j2+2] = xx0+dx*r, yy0+dy*r
 					xx0, yy0 = xx1, yy1
 				end
 			end
@@ -125,7 +131,7 @@ end
 -- ‰¼‘zƒoƒbƒtƒ@
 local x0, x1 = pos[1]-lw, pos[1]+lw
 local y0, y1 = pos[2]-lw, pos[2]+lw
-for i2=2,(n-1)*2,2 do
+for i2=2,(n_seg-1)*2,2 do
 	local x2, y2 = pos[i2+1], pos[i2+2]
 	if ( x2-lw < x0 ) then
 		x0 = x2-lw
@@ -186,14 +192,14 @@ end
 
 -- Ü‚ê“_•`‰æ
 obj.load("figure", "‰~", col, lw*8)
-for i2=2,(n-2)*2,2 do
+for i2=2,(n_break-2)*2,2 do
 	local x0, y0 = pos[i2+1], pos[i2+2]
 	ksa.drawrect(x0-lw, y0-lw, x0+lw, y0+lw)
 end
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
-obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy
 
 @—¼–îˆó
 --track0:ü•,1,1000,20,1
@@ -263,7 +269,7 @@ ksa.drawtri(x1, y1, hx1a, hy1a, hx1b, hy1b)
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
-obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+obj.cx, obj.cy = obj.cx+ox, obj.cy+oy
 
 @‹éŒ`˜g
 --track0:ü•,1,1000,20,1
@@ -315,7 +321,7 @@ end
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
-obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy
 
 @‘È‰~˜g
 --track0:ü•,1,1000,20,1
@@ -385,7 +391,7 @@ end
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
-obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy
 
 @˜g•t‚«ŠpŠÛŽlŠpŒ`
 --track0:Šp”¼Œa,0,1000,0,1
@@ -461,7 +467,7 @@ end
 
 obj.setoption("blend", 0)
 obj.copybuffer("obj", "tmp")
-obj.ox, obj.oy = obj.ox+ox, obj.oy+oy
+obj.cx, obj.cy = obj.cx-ox, obj.cy-oy
 
 @ƒCƒ“ƒ^[ƒŒ[ƒX‰ðœ
 --track0:‰ðœ–@,0,4,2,1
