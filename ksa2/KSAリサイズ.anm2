@@ -1,0 +1,62 @@
+--group:拡大率,true
+--track@mag:全体,0,800,100,0.01
+--track@x_mag:横,0,10000,100,0.01
+--track@y_mag:縦,0,10000,100,0.01
+--group
+--check@ave:平均法,false
+--check@dot:ドット数でサイズ指定,false
+--track@n_th:スレッド数,-1000,1000,0,1
+--group:クリップ,false
+--track@ct:上,0,4000,0,1
+--track@cb:下,0,4000,0,1
+--track@cl:左,0,4000,0,1
+--track@cr:右,0,4000,0,1
+--group
+
+local ksa = require("ksa")
+local src, sw, sh = obj.getpixeldata("object")
+local dw, dh
+if ( dot ) then
+	dw = ksa.round(x_mag)
+	dh = ksa.round(y_mag)
+else
+	dw = ksa.round( ( sw-cl-cr )*mag*x_mag*1e-4 )
+	dh = ksa.round( ( sh-ct-cb )*mag*y_mag*1e-4 )
+end
+if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
+	obj.setoption("drawtarget", "tempbuffer", dw, dh)
+	local dest, _dw, _dh = obj.getpixeldata("tempbuffer")
+	if ( _dw < dw ) then
+		local clr = math.ceil( (dw-_dw)*(sw-cl-cr)/(dw*2) )
+		cl = cl+clr
+		cr = cr+clr
+		if ( obj.check0 ) then
+			dw = ksa.round( dw*(sw-cl-cr)/(sw-cl-cr+clr*2) )
+		else
+			dw = ksa.round( ( sw-cl-cr )*obj.track0*obj.track1*1e-4 )
+		end
+	end
+	if ( _dh < dh ) then
+		local ctb = math.ceil( (dh-_dh)*(sh-ct-cb)/(dh*2) )
+		ct = ct+ctb
+		cb = cb+ctb
+		if ( obj.check0 ) then
+			dh = ksa.round( dh*(sh-ct-cb)/(sh-ct-cb+ctb*2) )
+		else
+			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track1*1e-4 )
+		end
+	end
+	if ( dw ~= _dw or dh ~= _dh ) then
+		obj.setoption("drawtarget", "tempbuffer", dw, dh)
+		dest, dw, dh = obj.getpixeldata("tempbuffer")
+	end
+	if ( ave ) then
+		ksa.clip_resize_ave(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+	else
+		ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+	end
+	obj.putpixeldata("object", dest, dw, dh)
+else
+	obj.setoption("drawtarget", "tempbuffer", 1, 1)
+	obj.copybuffer("obj", "tmp")
+end

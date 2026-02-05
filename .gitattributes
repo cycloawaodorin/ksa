@@ -3,6 +3,11 @@
 *.scn linguist-language=Lua
 *.cam linguist-language=Lua
 *.tra linguist-language=Lua
+*.obj2 linguist-language=Lua
+*.anm2 linguist-language=Lua
+*.scn2 linguist-language=Lua
+*.cam2 linguist-language=Lua
+*.tra2 linguist-language=Lua
 *.md linguist-documentation
 /LICENSE linguist-documentation
 /src/lua/* linguist-vendored

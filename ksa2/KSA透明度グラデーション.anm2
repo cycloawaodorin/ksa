@@ -1,0 +1,18 @@
+--label:KSA
+--track@cx:中心X,-10000,10000,0,1
+--track@cy:中心Y,-10000,10000,0,1
+--track@a_deg:角度,-360,360,0
+--track@width:幅,0,1000,100,1
+--track@s_tp:開始透明度,0,100,0
+--track@e_tp:終了透明度,0,100,100
+--track@type:タイプ,0,1,1,1
+
+local ksa = require("ksa")
+
+local s_alp = (1-s_tp/100)
+local e_alp = (1-e_tp/100)
+local angle = math.rad( a_deg )
+
+local data, w, h = obj.getpixeldata("object")
+ksa.trsgrad(data, w, h, cx+obj.cx+w/2, cy+obj.cy+h/2, angle, width, s_alp, e_alp, type)
+obj.putpixeldata("object", data, w, h)
