@@ -1,8 +1,9 @@
-#include "module2.hpp"
+#include <Windows.h>
 #include <thread>
 #include <numeric>
 #include <cmath>
 #include <cstring>
+#include "module2.hpp"
 #include "version.hpp"
 
 namespace KSA {

@@ -505,7 +505,10 @@ private:
 		d_px->a = uc_cast(a/ww);
 	}
 public:
-	static const float WEIGHTS[6];
+	constexpr static const float WEIGHTS[] = {
+		0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
+		0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
+	};
 	PIXEL_RGBA *dest;
 	int w, h;
 	bool top;
@@ -529,10 +532,7 @@ public:
 		}
 	}
 };
-constexpr const float DiSpatial::WEIGHTS[] = {
-	0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
-	0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
-};
+
 static void
 ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
