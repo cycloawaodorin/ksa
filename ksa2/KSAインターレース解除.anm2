@@ -6,29 +6,24 @@
 
 local ksa = require("ksa")
 obj.load("movie", path, (obj.frame-0.5)/obj.framerate)
-obj.setoption("drawtarget", "tempbuffer", obj.w, obj.h)
-local dest, w, h = obj.getpixeldata("temp")
+local dest, w, h = obj.getpixeldata("object")
 
 if ( method == 1 ) then -- 無補間
 	ksa.deinterlace_nn(dest, w, h, ksa.xor(obj.frame%2==0, bt))
 elseif ( method == 2 ) then -- 空間方向補間
-	ksa.deinterlace_spatial(dest, w, h, ksa.xor(obj.frame%2==0, bt), obj.track2)
+	ksa.deinterlace_spatial(dest, w, h, ksa.xor(obj.frame%2==0, bt), n_th)
 elseif ( method == 3 ) then -- 時間方向補間
-	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
-	obj.copybuffer("cache:bf", "object")
-	local bf, _w, _h = obj.getpixeldata("cache:bf")
-	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
-	obj.copybuffer("cache:af", "object")
-	local af, _w, _h = obj.getpixeldata("cache:af")
-	ksa.deinterlace_temporal(dest, bf, af, w, h, ksa.xor(obj.frame%2==0, bt), obj.track2)
+	obj.load("movie", path, (obj.frame-0.5-1)/obj.framerate)
+	local bf, _w, _h = obj.getpixeldata("object")
+	obj.load("movie", path, (obj.frame-0.5+1)/obj.framerate)
+	local af, _w, _h = obj.getpixeldata("object")
+	ksa.deinterlace_temporal(dest, bf, af, w, h, ksa.xor(obj.frame%2==0, bt), n_th)
 elseif ( method == 4 ) then -- 時間方向補間 with 二重化
-	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
-	obj.copybuffer("chache:past", "object")
-	local past, _w, _h = obj.getpixeldata("chache:past")
-	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
-	obj.copybuffer("cache:future", "object")
-	local future, _w, _h = obj.getpixeldata("cache:future")
-	ksa.deinterlace_ghost(dest, past, future, w, h, ksa.xor(obj.frame%2==0, bt), obj.track2)
+	obj.load("movie", path, (obj.frame-0.5-1)/obj.framerate)
+	local past, _w, _h = obj.getpixeldata("object")
+	obj.load("movie", path, (obj.frame-0.5+1)/obj.framerate)
+	local future, _w, _h = obj.getpixeldata("object")
+	ksa.deinterlace_ghost(dest, past, future, w, h, ksa.xor(obj.frame%2==0, bt), n_th)
 else
 	-- 何もしない
 end
