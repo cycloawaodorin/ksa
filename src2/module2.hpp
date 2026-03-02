@@ -3,12 +3,13 @@
 //	By ＫＥＮくん
 //----------------------------------------------------------------------------------
 
-#include <windows.h>
-
 //	スクリプトモジュールは下記の関数を外部公開すると呼び出されます
 //
 //	スクリプトモジュール構造体のポインタを渡す関数 (必須)
 //		SCRIPT_MODULE_TABLE* GetScriptModuleTable(void)
+//
+//	必要とする本体バージョン番号取得関数 (任意)
+//		DWORD RequiredVersion() ※必要な本体のバージョン番号を返却します
 // 
 //	プラグインDLL初期化関数 (任意)
 //		bool InitializePlugin(DWORD version) ※versionは本体のバージョン番号
@@ -189,4 +190,3 @@ struct SCRIPT_MODULE_TABLE {
 	LPCWSTR information;				// スクリプトモジュールの情報
 	SCRIPT_MODULE_FUNCTION* functions;	// 登録する関数の一覧 (SCRIPT_MODULE_FUNCTIONを列挙して関数名がnullの要素で終端したリストへのポインタ)
 };
-
