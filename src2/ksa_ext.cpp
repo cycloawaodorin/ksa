@@ -55,7 +55,7 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 // 縁透明グラデーション
 class Edgegrad {
 private:
-	constexpr float
+	float
 	mag(const float &z)
 	const {
 		if ( type == 0 ) {
@@ -67,7 +67,7 @@ private:
 			return 0.0f;
 		}
 	}
-	constexpr float
+	float
 	cw(const float &cx, const float &cy)
 	const {
 		if ( round ) {
@@ -76,7 +76,7 @@ private:
 			return std::min(cx, cy);
 		}
 	}
-	constexpr void
+	void
 	set_alpha(const int &x, const int &y, const float &z)
 	{
 		PIXEL_RGBA *tag = data + (y*w+x);
@@ -152,19 +152,19 @@ public:
 	PIXEL_RGBA *data;
 	int w, h, t, b, l, r, type;
 	bool round;
-	static void
-	invoke(Edgegrad *p, int i, const int &n_th)
+	void
+	invoke(int i, const int &n_th)
 	{
 		if ( i == 0 ) {
-			p->corner();
+			corner();
 		} else if ( i == 1 ) {
-			p->top();
+			top();
 		} else if ( i == 2 ) {
-			p->bottom();
+			bottom();
 		} else if ( i == 3 ) {
-			p->left();
+			left();
 		} else {
-			p->right();
+			right();
 		}
 	}
 };
@@ -192,7 +192,7 @@ class ClipResize {
 private:
 	class XY {
 	private:
-		constexpr static float
+		static float
 		sinc(const float &x)
 		{
 			if ( x == 0.0f ) {
@@ -201,7 +201,7 @@ private:
 				return std::sin(x)/x;
 			}
 		}
-		constexpr static float
+		static float
 		lanczos3(const float &x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
@@ -297,20 +297,20 @@ public:
 	const PIXEL_RGBA *src;
 	PIXEL_RGBA *dest;
 	XY x, y;
-	static void
-	invoke_set_weights(ClipResize *p, int i, const int &n_th)
+	void
+	invoke_set_weights(int i, const int &n_th)
 	{
-		p->x.set_weights(( i*(p->x.var) )/n_th, ( (i+1)*(p->x.var) )/n_th);
-		p->y.set_weights(( i*(p->y.var) )/n_th, ( (i+1)*(p->y.var) )/n_th);
+		x.set_weights(( i*(x.var) )/n_th, ( (i+1)*(x.var) )/n_th);
+		y.set_weights(( i*(y.var) )/n_th, ( (i+1)*(y.var) )/n_th);
 	}
-	static void
-	invoke_interpolate(ClipResize *p, int i, const int &n_th)
+	void
+	invoke_interpolate(int i, const int &n_th)
 	{
-		const int y_start = ( i*(p->y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
+		const int y_start = ( i*(y.dest_size) )/n_th;
+		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
 		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->x.dest_size); dx++) {
-				p->interpolate(dx, dy);
+			for (int dx=0; dx<(x.dest_size); dx++) {
+				interpolate(dx, dy);
 			}
 		}
 	}
@@ -352,13 +352,13 @@ private:
 		struct RANGE {
 			int start, end;
 		};
-		constexpr void
+		void
 		calc_range(const int &dest, RANGE *range)
 		const {
 			range->start = dest*dc;
 			range->end = (dest+1)*dc;
 		}
-		constexpr void
+		void
 		calc_params()
 		{
 			const int ss = src_size-clip_start-clip_end;
@@ -396,14 +396,14 @@ public:
 	PIXEL_RGBA *dest;
 	XY x, y;
 	std::intmax_t w;
-	static void
-	invoke_interpolate(ClipResizeAve *p, int i, const int &n_th)
+	void
+	invoke_interpolate(int i, const int &n_th)
 	{
-		const int y_start = ( i*(p->y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(p->y.dest_size) )/n_th;
+		const int y_start = ( i*(y.dest_size) )/n_th;
+		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
 		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(p->x.dest_size); dx++) {
-				p->interpolate(dx, dy);
+			for (int dx=0; dx<(x.dest_size); dx++) {
+				interpolate(dx, dy);
 			}
 		}
 	}
@@ -512,21 +512,21 @@ public:
 	PIXEL_RGBA *dest;
 	int w, h;
 	bool top;
-	static void
-	invoke_interpolate(DiSpatial *p, int i, const int &n_th)
+	void
+	invoke_interpolate(int i, const int &n_th)
 	{
-		const int x_start = ( i*(p->w) )/n_th;
-		const int x_end = ( (i+1)*(p->w) )/n_th;
-		if ( p->top ) {
-			for (int y=0; y<p->h; y+=2) {
+		const int x_start = ( i*w )/n_th;
+		const int x_end = ( (i+1)*w )/n_th;
+		if ( top ) {
+			for (int y=0; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					interpolate(x, y);
 				}
 			}
 		} else {
-			for (int y=1; y<p->h; y+=2) {
+			for (int y=1; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					interpolate(x, y);
 				}
 			}
 		}
@@ -577,21 +577,21 @@ public:
 	const PIXEL_RGBA *past, *future;
 	int w, h;
 	bool top;
-	static void
-	invoke_interpolate(DiTemporal *p, int i, const int &n_th)
+	void
+	invoke_interpolate(int i, const int &n_th)
 	{
-		const int x_start = ( i*(p->w) )/n_th;
-		const int x_end = ( (i+1)*(p->w) )/n_th;
-		if ( p->top ) {
-			for (int y=0; y<p->h; y+=2) {
+		const int x_start = ( i*w )/n_th;
+		const int x_end = ( (i+1)*w )/n_th;
+		if ( top ) {
+			for (int y=0; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					interpolate(x, y);
 				}
 			}
 		} else {
-			for (int y=1; y<p->h; y+=2) {
+			for (int y=1; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate(x, y);
+					interpolate(x, y);
 				}
 			}
 		}
@@ -668,13 +668,13 @@ private:
 			px_d->a = uc_cast( pafa*0.5f );
 		}
 	}
-	constexpr void
+	void
 	interpolate0(const int &x, const int &y)
 	{
 		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
-	constexpr void
+	void
 	interpolate1(const int &x, const int &y)
 	{
 		interpolate_spatial(past_temp, !top, x, y);
@@ -702,52 +702,52 @@ public:
 	const PIXEL_RGBA *future;
 	int w, h;
 	bool top;
-	static void
-	invoke_interpolate0(DiGhost *p, int i, const int &n_th)
+	void
+	invoke_interpolate0(int i, const int &n_th)
 	{
-		const int x_start = ( i*(p->w) )/n_th;
-		const int x_end = ( (i+1)*(p->w) )/n_th;
-		if ( p->top ) {
-			for (int y=0; y<p->h; y+=2) {
+		const int x_start = ( i*w )/n_th;
+		const int x_end = ( (i+1)*w )/n_th;
+		if ( top ) {
+			for (int y=0; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate0(x, y);
+					interpolate0(x, y);
 				}
 			}
 		} else {
-			for (int y=1; y<p->h; y+=2) {
+			for (int y=1; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate0(x, y);
+					interpolate0(x, y);
 				}
 			}
 		}
 	}
-	static void
-	invoke_interpolate1(DiGhost *p, int i, const int &n_th)
+	void
+	invoke_interpolate1(int i, const int &n_th)
 	{
-		const int x_start = ( i*(p->w) )/n_th;
-		const int x_end = ( (i+1)*(p->w) )/n_th;
-		if ( p->top ) {
-			for (int y=1; y<p->h; y+=2) {
+		const int x_start = ( i*w )/n_th;
+		const int x_end = ( (i+1)*w )/n_th;
+		if ( top ) {
+			for (int y=1; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate1(x, y);
+					interpolate1(x, y);
 				}
 			}
 		} else {
-			for (int y=0; y<p->h; y+=2) {
+			for (int y=0; y<h; y+=2) {
 				for (int x=x_start; x<x_end; x++) {
-					p->interpolate1(x, y);
+					interpolate1(x, y);
 				}
 			}
 		}
 	}
-	static void
-	invoke_mix(DiGhost *p, int i, const int &n_th)
+	void
+	invoke_mix(int i, const int &n_th)
 	{
-		const int x_start = ( i*(p->w) )/n_th;
-		const int x_end = ( (i+1)*(p->w) )/n_th;
-		for (int y=0; y<p->h; y++) {
+		const int x_start = ( i*w )/n_th;
+		const int x_end = ( (i+1)*w )/n_th;
+		for (int y=0; y<h; y++) {
 			for (int x=x_start; x<x_end; x++) {
-				p->mix(x, y);
+				mix(x, y);
 			}
 		}
 	}
