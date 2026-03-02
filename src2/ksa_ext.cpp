@@ -395,7 +395,7 @@ public:
 	const PIXEL_RGBA *src;
 	PIXEL_RGBA *dest;
 	XY x, y;
-	std::int64_t w;
+	std::intmax_t w;
 	static void
 	invoke_interpolate(ClipResizeAve *p, int i, const int &n_th)
 	{
@@ -430,7 +430,7 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 	// パラメータ計算
 	p->x.calc_params();
 	p->y.calc_params();
-	p->w = static_cast<std::int64_t>((p->x.dc)*(p->y.dc));
+	p->w = static_cast<std::intmax_t>((p->x.dc)*(p->y.dc));
 	
 	// 本処理
 	parallel_do(ClipResizeAve::invoke_interpolate, p.get(), n_th);
