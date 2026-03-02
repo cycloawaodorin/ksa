@@ -27,7 +27,7 @@ ksa_trsgrad(lua_State *L)
 	PIXEL_BGRA *data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	const int w = lua_tointeger(L, ++i);
 	const int h = lua_tointeger(L, ++i);
-	std::unique_ptr<Trsgrad> p(new Trsgrad);
+	auto p = std::make_unique<Trsgrad>();
 	p->cx = static_cast<float>(lua_tonumber(L, ++i));
 	p->cy = static_cast<float>(lua_tonumber(L, ++i));
 	const float angle = static_cast<float>(lua_tonumber(L, ++i));
@@ -173,7 +173,7 @@ static int
 ksa_edgegrad(lua_State *L)
 {
 	int i=0;
-	std::unique_ptr<Edgegrad> p(new Edgegrad);
+	auto p = std::make_unique<Edgegrad>();
 	p->data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
 	p->h = lua_tointeger(L, ++i);
@@ -245,7 +245,7 @@ private:
 			correction = (reversed_scale-1)/2 + clip_start;
 			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
 			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
-			weights.reset(new std::unique_ptr<float[]>[var]);
+			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
 		}
 		void
 		set_weights(const int &start, const int &end)
@@ -260,7 +260,7 @@ private:
 					s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
 					e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
 				}
-				weights[i].reset(new float[e-s+1]);
+				weights[i] = std::make_unique<float[]>(e-s+1);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
 					weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 				}
@@ -321,7 +321,7 @@ static int
 ksa_clip_resize(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<ClipResize> p(new ClipResize());
+	auto p = std::make_unique<ClipResize>();
 	int i=0;
 	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->x.src_size = lua_tointeger(L, ++i);
@@ -415,7 +415,7 @@ static int
 ksa_clip_resize_ave(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<ClipResizeAve> p(new ClipResizeAve());
+	auto p = std::make_unique<ClipResizeAve>();
 	int i=0;
 	p->src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->x.src_size = lua_tointeger(L, ++i);
@@ -463,7 +463,7 @@ static int
 ksa_deinterlace_nn(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<DiNN> p(new DiNN());
+	auto p = std::make_unique<DiNN>();
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
@@ -542,7 +542,7 @@ static int
 ksa_deinterlace_spatial(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<DiSpatial> p(new DiSpatial());
+	auto p = std::make_unique<DiSpatial>();
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->w = lua_tointeger(L, ++i);
@@ -607,7 +607,7 @@ static int
 ksa_deinterlace_temporal(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<DiTemporal> p(new DiTemporal());
+	auto p = std::make_unique<DiTemporal>();
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
@@ -763,7 +763,7 @@ static int
 ksa_deinterlace_ghost(lua_State *L)
 {
 	// 引数受け取り
-	std::unique_ptr<DiGhost> p(new DiGhost());
+	auto p = std::make_unique<DiGhost>();
 	int i=0;
 	p->dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	p->past_temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));

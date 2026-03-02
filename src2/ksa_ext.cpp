@@ -28,7 +28,7 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	PIXEL_RGBA *data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	const int w = param->get_param_int(i++);
 	const int h = param->get_param_int(i++);
-	std::unique_ptr<Trsgrad> p(new Trsgrad);
+	auto p = std::make_unique<Trsgrad>();
 	p->cx = static_cast<float>(param->get_param_double(i++));
 	p->cy = static_cast<float>(param->get_param_double(i++));
 	const float angle = static_cast<float>(param->get_param_double(i++));
@@ -173,7 +173,7 @@ ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 9) ) { return; }
 	int i=0;
-	std::unique_ptr<Edgegrad> p(new Edgegrad);
+	auto p = std::make_unique<Edgegrad>();
 	p->data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->w = param->get_param_int(i++);
 	p->h = param->get_param_int(i++);
@@ -243,7 +243,7 @@ private:
 			correction = (reversed_scale-1)/2 + clip_start;
 			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
 			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
-			weights.reset(new std::unique_ptr<float[]>[var]);
+			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
 		}
 		void
 		set_weights(const int &start, const int &end)
@@ -258,7 +258,7 @@ private:
 					s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
 					e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
 				}
-				weights[i].reset(new float[e-s+1]);
+				weights[i] = std::make_unique<float[]>(e-s+1);
 				for ( int sxy = s; sxy <= e; sxy++ ) {
 					weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 				}
@@ -320,7 +320,7 @@ ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 11) ) { return; }
-	std::unique_ptr<ClipResize> p(new ClipResize());
+	auto p = std::make_unique<ClipResize>();
 	int i=0;
 	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->x.src_size = param->get_param_int(i++);
@@ -413,7 +413,7 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 11) ) { return; }
-	std::unique_ptr<ClipResizeAve> p(new ClipResizeAve());
+	auto p = std::make_unique<ClipResizeAve>();
 	int i=0;
 	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->x.src_size = param->get_param_int(i++);
@@ -460,7 +460,7 @@ ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 4) ) { return; }
-	std::unique_ptr<DiNN> p(new DiNN());
+	auto p = std::make_unique<DiNN>();
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->w = param->get_param_int(i++);
@@ -538,7 +538,7 @@ ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 5) ) { return; }
-	std::unique_ptr<DiSpatial> p(new DiSpatial());
+	auto p = std::make_unique<DiSpatial>();
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->w = param->get_param_int(i++);
@@ -602,7 +602,7 @@ ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 7) ) { return; }
-	std::unique_ptr<DiTemporal> p(new DiTemporal());
+	auto p = std::make_unique<DiTemporal>();
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
@@ -757,7 +757,7 @@ ksa_deinterlace_ghost(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 7) ) { return; }
-	std::unique_ptr<DiGhost> p(new DiGhost());
+	auto p = std::make_unique<DiGhost>();
 	int i=0;
 	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
 	p->past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));

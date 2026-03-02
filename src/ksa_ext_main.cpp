@@ -143,7 +143,7 @@ template <class T>
 static void
 parallel_do(void (*f)(T*, int, const int &), T *p, const int &n)
 {
-	std::unique_ptr<std::thread[]> threads(new std::thread[n]);
+	auto threads=std::make_unique<std::thread[]>(n);
 	for (int i=0; i<n; i++) {
 		threads[i] = std::thread(f, p, i, n);
 	}
