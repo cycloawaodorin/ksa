@@ -1,11 +1,10 @@
 --group:拡大率,true
---track@mag:全体,0,800,100,0.01
+--track@mag:全体,0,10000,100,0.01
 --track@x_mag:横,0,10000,100,0.01
 --track@y_mag:縦,0,10000,100,0.01
 --group
 --check@ave:平均法,false
 --check@dot:ドット数でサイズ指定,false
---track@n_th:スレッド数,-1000,1000,0,1
 --group:クリップ,false
 --track@ct:上,0,4000,0,1
 --track@cb:下,0,4000,0,1
@@ -51,9 +50,9 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		dest, dw, dh = obj.getpixeldata("tempbuffer")
 	end
 	if ( ave ) then
-		ksa.clip_resize_ave(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+		ksa.clip_resize_ave(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
 	else
-		ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+		ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
 	end
 	obj.putpixeldata("object", dest, dw, dh)
 else

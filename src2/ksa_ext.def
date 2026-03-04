@@ -2,3 +2,5 @@ LIBRARY ksa_ext
 
 EXPORTS
 	GetScriptModuleTable @1
+	InitializePlugin @2
+	UninitializePlugin @3
