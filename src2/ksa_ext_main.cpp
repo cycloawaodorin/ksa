@@ -1,5 +1,9 @@
 #include <Windows.h>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <queue>
 #include <numeric>
 #include <cmath>
 #include <cstring>
@@ -141,22 +145,98 @@ public:
 	}
 };
 
-template <class T>
-static void
-parallel_do(void (T::*f)(int, const int &), T *p, const int &n)
-{
-	if ( 1 < n ) {
-		auto threads=std::make_unique<std::thread[]>(n);
-		for (int i=0; i<n; i++) {
-			threads[i] = std::thread(f, p, i, n);
+class ThreadPool {
+private:
+	class Thread {
+	public:
+		std::thread thread;
+		bool ready;
+		std::mutex mx;
+		std::condition_variable cv;
+		Thread() : ready(false) {}
+	};
+	std::unique_ptr<Thread[]> threads;
+	int size;
+	std::function<void(int)> func;
+	std::mutex gmx;
+	std::queue<int> jobs;
+	bool terminate;
+	void
+	listen(Thread *th)
+	{
+		for (;;) {
+			{ // ジョブが来るまで待機
+				std::unique_lock<std::mutex> lk(th->mx);
+				th->cv.wait(lk, [&]{ return th->ready; });
+			}
+			if ( terminate ) { // スレッドプールの破棄
+				return;
+			}
+			for (int i=INT_MAX; !jobs.empty();) {
+				{ // ジョブの取り出し
+					std::lock_guard<std::mutex> lk(gmx);
+					if ( !jobs.empty() ) {
+						i = jobs.front();
+						jobs.pop();
+					}
+				}
+				if ( i < INT_MAX ) { // ジョブ実行
+					func(i);
+				}
+			}
+			{ // 全ジョブ完了
+				std::lock_guard<std::mutex> lk(th->mx);
+				th->ready = false;
+			}
+			th->cv.notify_one();
 		}
-		for (int i=0; i<n; i++) {
-			threads[i].join();
-		}
-	} else {
-		(p->*f)(0, n);
 	}
-}
+public:
+	ThreadPool() : size(std::thread::hardware_concurrency()), terminate(false)
+	{
+		threads = std::make_unique<Thread[]>(size);
+		for (auto i=0; i<size; i++) {
+			threads[i].thread = std::thread(listen, this, &threads[i]);
+		}
+	}
+	~ThreadPool()
+	{
+		{
+			for (auto i=0; i<size; i++) {
+				threads[i].mx.lock();
+				threads[i].ready = true;
+			}
+			terminate = true;
+			for (auto i=0; i<size; i++) {
+				threads[i].mx.unlock();
+				threads[i].cv.notify_all();
+			}
+		}
+		for (auto i=0; i<size; i++) {
+			threads[i].thread.join();
+		}
+	}
+	void
+	parallel_do(std::function<void(int)> f, int n)
+	{
+		func = f; // ジョブ関数
+		for (int i=0; i<n; i++) {
+			jobs.push(i); // ジョブ引数をセット
+		}
+		for (auto i=0; i<size; i++) { // ワーカー起動
+			{
+				std::lock_guard<std::mutex> lk(threads[i].mx);
+				threads[i].ready = true;
+			}
+			threads[i].cv.notify_one();
+		}
+		for (auto i=0; i<size; i++) { // 全ワーカーの終了を待つ
+			std::unique_lock<std::mutex> lk(threads[i].mx);
+			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
+		}
+	}
+};
+static std::unique_ptr<ThreadPool> TP;
 
 constexpr static const float PI = 3.141592653589793f;
 struct PIXEL_RGBA {
@@ -198,17 +278,6 @@ uc_cast(std::intmax_t num, std::intmax_t den)
 		}
 	}
 }
-static int
-n_th_correction(int n_th)
-{
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
-	return n_th;
-}
 
 static bool
 check_arg_num(SCRIPT_MODULE_PARAM* param, const int n)
@@ -241,4 +310,17 @@ GetScriptModuleTable()
 		ksa_ext
 	};
 	return &smt;
+}
+
+EXTERN_C bool
+InitializePlugin(DWORD version)
+{
+	KSA::TP = std::make_unique<KSA::ThreadPool>();
+	return true;
+}
+
+EXTERN_C void
+UninitializePlugin()
+{
+	KSA::TP.reset(nullptr);
 }
