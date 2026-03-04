@@ -1,8 +1,6 @@
 // 透明グラデーション
 class Trsgrad {
-public:
-	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
-	int type;
+private:
 	float
 	calc_grad(const float &x, const float &y)
 	const {
@@ -18,6 +16,20 @@ public:
 			return (a_int+a_cef*d);
 		}
 	}
+public:
+	PIXEL_RGBA *data;
+	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
+	int w, h, type;
+	void
+	invoke_calc_grad(int y)
+	{
+		auto p=&data[y*w];
+		float fy = static_cast<float>(y);
+		for (int x=0; x<w; x++) {
+			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
+			p++;
+		}
+	}
 };
 static void
 ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
@@ -25,31 +37,26 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	// 引数受け取り
 	if ( check_arg_num(param, 10) ) { return; }
 	int i=0;
-	PIXEL_RGBA *data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	const int w = param->get_param_int(i++);
-	const int h = param->get_param_int(i++);
-	auto p = std::make_unique<Trsgrad>();
-	p->cx = static_cast<float>(param->get_param_double(i++));
-	p->cy = static_cast<float>(param->get_param_double(i++));
+	Trsgrad it;
+	it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.cx = static_cast<float>(param->get_param_double(i++));
+	it.cy = static_cast<float>(param->get_param_double(i++));
 	const float angle = static_cast<float>(param->get_param_double(i++));
 	const float gwidth = static_cast<float>(param->get_param_double(i++));
-	p->a0 = static_cast<float>(param->get_param_double(i++));
-	p->a1 = static_cast<float>(param->get_param_double(i++));
-	p->type = param->get_param_int(i++);
+	it.a0 = static_cast<float>(param->get_param_double(i++));
+	it.a1 = static_cast<float>(param->get_param_double(i++));
+	it.type = param->get_param_int(i++);
 	
 	// パラメータ計算
-	p->sx = -std::sin(angle)/gwidth;
-	p->sy = std::cos(angle)/gwidth;
-	p->a_cef = (p->a1)-(p->a0);
-	p->a_int = ((p->a0)+(p->a1))*0.5f;
+	it.sx = -std::sin(angle)/gwidth;
+	it.sy = std::cos(angle)/gwidth;
+	it.a_cef = (it.a1)-(it.a0);
+	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	for (int y=0; y<h; y++) {
-		for (int x=0; x<w; x++) {
-			data->a = static_cast<unsigned char>( data->a * p->calc_grad(static_cast<float>(x), static_cast<float>(y)) );
-			data++;
-		}
-	}
+	TP->parallel_do([&it](int j){ it.invoke_calc_grad(j); }, it.h);
 }
 
 // 縁透明グラデーション
@@ -153,7 +160,7 @@ public:
 	int w, h, t, b, l, r, type;
 	bool round;
 	void
-	invoke(int i, const int &n_th)
+	invoke(int i)
 	{
 		if ( i == 0 ) {
 			corner();
@@ -173,18 +180,18 @@ ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 9) ) { return; }
 	int i=0;
-	auto p = std::make_unique<Edgegrad>();
-	p->data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->w = param->get_param_int(i++);
-	p->h = param->get_param_int(i++);
-	p->t = param->get_param_int(i++);
-	p->b = param->get_param_int(i++);
-	p->l = param->get_param_int(i++);
-	p->r = param->get_param_int(i++);
-	p->round = param->get_param_boolean(i++);
-	p->type = param->get_param_int(i++);
+	Edgegrad it;
+	it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.t = param->get_param_int(i++);
+	it.b = param->get_param_int(i++);
+	it.l = param->get_param_int(i++);
+	it.r = param->get_param_int(i++);
+	it.round = param->get_param_boolean(i++);
+	it.type = param->get_param_int(i++);
 	
-	parallel_do(Edgegrad::invoke, p.get(), 5);
+	TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
 }
 
 // クリッピング & Lanczos3 拡大縮小
@@ -246,22 +253,20 @@ private:
 			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
 		}
 		void
-		set_weights(const int &start, const int &end)
+		set_weights(const int i)
 		{
-			for (int i=start; i<end; i++) {
-				const Rational c = reversed_scale*i + correction;
-				int s, e;
-				if ( extend ) {
-					s = static_cast<int>( c.ceil_eps() ) - 3;
-					e = static_cast<int>( c.floor_eps() ) + 3;
-				} else {
-					s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
-					e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
-				}
-				weights[i] = std::make_unique<float[]>(e-s+1);
-				for ( int sxy = s; sxy <= e; sxy++ ) {
-					weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
-				}
+			const Rational c = reversed_scale*i + correction;
+			int s, e;
+			if ( extend ) {
+				s = static_cast<int>( c.ceil_eps() ) - 3;
+				e = static_cast<int>( c.floor_eps() ) + 3;
+			} else {
+				s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
+				e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
+			}
+			weights[i] = std::make_unique<float[]>(e-s+1);
+			for ( int sxy = s; sxy <= e; sxy++ ) {
+				weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 			}
 		}
 	};
@@ -298,20 +303,19 @@ public:
 	PIXEL_RGBA *dest;
 	XY x, y;
 	void
-	invoke_set_weights(int i, const int &n_th)
+	invoke_set_weights(int i)
 	{
-		x.set_weights(( i*(x.var) )/n_th, ( (i+1)*(x.var) )/n_th);
-		y.set_weights(( i*(y.var) )/n_th, ( (i+1)*(y.var) )/n_th);
+		if ( i < x.var ) {
+			x.set_weights(i);
+		} else {
+			y.set_weights(i-x.var);
+		}
 	}
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int dy)
 	{
-		const int y_start = ( i*(y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(x.dest_size); dx++) {
-				interpolate(dx, dy);
-			}
+		for (int dx=0; dx<(x.dest_size); dx++) {
+			interpolate(dx, dy);
 		}
 	}
 };
@@ -319,28 +323,27 @@ static void
 ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
-	if ( check_arg_num(param, 11) ) { return; }
-	auto p = std::make_unique<ClipResize>();
+	if ( check_arg_num(param, 10) ) { return; }
+	ClipResize it;
 	int i=0;
-	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->x.src_size = param->get_param_int(i++);
-	p->y.src_size = param->get_param_int(i++);
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->x.dest_size = param->get_param_int(i++);
-	p->y.dest_size = param->get_param_int(i++);
-	p->y.clip_start = param->get_param_int(i++);
-	p->y.clip_end = param->get_param_int(i++);
-	p->x.clip_start = param->get_param_int(i++);
-	p->x.clip_end = param->get_param_int(i++);
-	const int n_th = n_th_correction(param->get_param_int(i++));
+	it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.x.src_size = param->get_param_int(i++);
+	it.y.src_size = param->get_param_int(i++);
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.x.dest_size = param->get_param_int(i++);
+	it.y.dest_size = param->get_param_int(i++);
+	it.y.clip_start = param->get_param_int(i++);
+	it.y.clip_end = param->get_param_int(i++);
+	it.x.clip_start = param->get_param_int(i++);
+	it.x.clip_end = param->get_param_int(i++);
 	
 	// パラメータ計算
-	p->x.calc_params();
-	p->y.calc_params();
-	parallel_do(ClipResize::invoke_set_weights, p.get(), n_th);
+	it.x.calc_params();
+	it.y.calc_params();
+	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
 	
 	// 本処理
-	parallel_do(ClipResize::invoke_interpolate, p.get(), n_th);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 }
 
 // クリッピング & 画素平均法 拡大縮小
@@ -397,14 +400,10 @@ public:
 	XY x, y;
 	std::intmax_t w;
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int dy)
 	{
-		const int y_start = ( i*(y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(x.dest_size); dx++) {
-				interpolate(dx, dy);
-			}
+		for (int dx=0; dx<(x.dest_size); dx++) {
+			interpolate(dx, dy);
 		}
 	}
 };
@@ -412,28 +411,27 @@ static void
 ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
-	if ( check_arg_num(param, 11) ) { return; }
-	auto p = std::make_unique<ClipResizeAve>();
+	if ( check_arg_num(param, 10) ) { return; }
+	ClipResizeAve it;
 	int i=0;
-	p->src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->x.src_size = param->get_param_int(i++);
-	p->y.src_size = param->get_param_int(i++);
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->x.dest_size = param->get_param_int(i++);
-	p->y.dest_size = param->get_param_int(i++);
-	p->y.clip_start = param->get_param_int(i++);
-	p->y.clip_end = param->get_param_int(i++);
-	p->x.clip_start = param->get_param_int(i++);
-	p->x.clip_end = param->get_param_int(i++);
-	const int n_th = n_th_correction(param->get_param_int(i++));
+	it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.x.src_size = param->get_param_int(i++);
+	it.y.src_size = param->get_param_int(i++);
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.x.dest_size = param->get_param_int(i++);
+	it.y.dest_size = param->get_param_int(i++);
+	it.y.clip_start = param->get_param_int(i++);
+	it.y.clip_end = param->get_param_int(i++);
+	it.x.clip_start = param->get_param_int(i++);
+	it.x.clip_end = param->get_param_int(i++);
 	
 	// パラメータ計算
-	p->x.calc_params();
-	p->y.calc_params();
-	p->w = static_cast<std::intmax_t>((p->x.dc)*(p->y.dc));
+	it.x.calc_params();
+	it.y.calc_params();
+	it.w = static_cast<std::intmax_t>((it.x.dc)*(it.y.dc));
 	
 	// 本処理
-	parallel_do(ClipResizeAve::invoke_interpolate, p.get(), n_th);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 }
 
 class DiNN {
@@ -442,16 +440,12 @@ public:
 	int w, h;
 	bool top;
 	void
-	doubling()
+	doubling(int i)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
-				std::memcpy(dest+(y*w), dest+((y+1)*w), sizeof(PIXEL_RGBA)*w);
-			}
+			std::memcpy(&dest[i*2*w], &dest[(i*2+1)*w], sizeof(PIXEL_RGBA)*w);
 		} else {
-			for (int y=1; y<h; y+=2) {
-				std::memcpy(dest+(y*w), dest+((y-1)*w), sizeof(PIXEL_RGBA)*w);
-			}
+			std::memcpy(&dest[(i*2+1)*w], &dest[i*2*w], sizeof(PIXEL_RGBA)*w);
 		}
 	}
 };
@@ -460,15 +454,15 @@ ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
 	if ( check_arg_num(param, 4) ) { return; }
-	auto p = std::make_unique<DiNN>();
+	DiNN it;
 	int i=0;
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->w = param->get_param_int(i++);
-	p->h = param->get_param_int(i++);
-	p->top = param->get_param_boolean(i++);
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.top = param->get_param_boolean(i++);
 	
 	// 本処理
-	p->doubling();
+	TP->parallel_do([&it](int j){ it.doubling(j); }, it.h/2);
 }
 
 class DiSpatial {
@@ -513,21 +507,15 @@ public:
 	int w, h;
 	bool top;
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int x)
 	{
-		const int x_start = ( i*w )/n_th;
-		const int x_end = ( (i+1)*w )/n_th;
 		if ( top ) {
 			for (int y=0; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate(x, y);
-				}
+				interpolate(x, y);
 			}
 		} else {
 			for (int y=1; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate(x, y);
-				}
+				interpolate(x, y);
 			}
 		}
 	}
@@ -537,17 +525,16 @@ static void
 ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
-	if ( check_arg_num(param, 5) ) { return; }
-	auto p = std::make_unique<DiSpatial>();
+	if ( check_arg_num(param, 4) ) { return; }
+	DiSpatial it;
 	int i=0;
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->w = param->get_param_int(i++);
-	p->h = param->get_param_int(i++);
-	p->top = param->get_param_boolean(i++);
-	const int n_th = n_th_correction(param->get_param_int(i++));
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.top = param->get_param_boolean(i++);
 	
 	// 本処理
-	parallel_do(DiSpatial::invoke_interpolate, p.get(), n_th);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
 }
 
 class DiTemporal {
@@ -578,21 +565,15 @@ public:
 	int w, h;
 	bool top;
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int x)
 	{
-		const int x_start = ( i*w )/n_th;
-		const int x_end = ( (i+1)*w )/n_th;
 		if ( top ) {
 			for (int y=0; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate(x, y);
-				}
+				interpolate(x, y);
 			}
 		} else {
 			for (int y=1; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate(x, y);
-				}
+				interpolate(x, y);
 			}
 		}
 	}
@@ -601,19 +582,18 @@ static void
 ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
-	if ( check_arg_num(param, 7) ) { return; }
-	auto p = std::make_unique<DiTemporal>();
+	if ( check_arg_num(param, 6) ) { return; }
+	DiTemporal it;
 	int i=0;
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->w = param->get_param_int(i++);
-	p->h = param->get_param_int(i++);
-	p->top = param->get_param_boolean(i++);
-	const int n_th = n_th_correction(param->get_param_int(i++));
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.top = param->get_param_boolean(i++);
 	
 	// 本処理
-	parallel_do(DiTemporal::invoke_interpolate, p.get(), n_th);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
 }
 
 class DiGhost {
@@ -703,52 +683,36 @@ public:
 	int w, h;
 	bool top;
 	void
-	invoke_interpolate0(int i, const int &n_th)
+	invoke_interpolate0(int x)
 	{
-		const int x_start = ( i*w )/n_th;
-		const int x_end = ( (i+1)*w )/n_th;
 		if ( top ) {
 			for (int y=0; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate0(x, y);
-				}
+				interpolate0(x, y);
 			}
 		} else {
 			for (int y=1; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate0(x, y);
-				}
+				interpolate0(x, y);
 			}
 		}
 	}
 	void
-	invoke_interpolate1(int i, const int &n_th)
+	invoke_interpolate1(int x)
 	{
-		const int x_start = ( i*w )/n_th;
-		const int x_end = ( (i+1)*w )/n_th;
 		if ( top ) {
 			for (int y=1; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate1(x, y);
-				}
+				interpolate1(x, y);
 			}
 		} else {
 			for (int y=0; y<h; y+=2) {
-				for (int x=x_start; x<x_end; x++) {
-					interpolate1(x, y);
-				}
+				interpolate1(x, y);
 			}
 		}
 	}
 	void
-	invoke_mix(int i, const int &n_th)
+	invoke_mix(int x)
 	{
-		const int x_start = ( i*w )/n_th;
-		const int x_end = ( (i+1)*w )/n_th;
 		for (int y=0; y<h; y++) {
-			for (int x=x_start; x<x_end; x++) {
-				mix(x, y);
-			}
+			mix(x, y);
 		}
 	}
 };
@@ -756,19 +720,18 @@ static void
 ksa_deinterlace_ghost(SCRIPT_MODULE_PARAM *param)
 {
 	// 引数受け取り
-	if ( check_arg_num(param, 7) ) { return; }
-	auto p = std::make_unique<DiGhost>();
+	if ( check_arg_num(param, 6) ) { return; }
+	DiGhost it;
 	int i=0;
-	p->dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	p->w = param->get_param_int(i++);
-	p->h = param->get_param_int(i++);
-	p->top = param->get_param_boolean(i++);
-	const int n_th = n_th_correction(param->get_param_int(i++));
+	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+	it.w = param->get_param_int(i++);
+	it.h = param->get_param_int(i++);
+	it.top = param->get_param_boolean(i++);
 	
 	// 本処理
-	parallel_do(DiGhost::invoke_interpolate0, p.get(), n_th);
-	parallel_do(DiGhost::invoke_interpolate1, p.get(), n_th);
-	parallel_do(DiGhost::invoke_mix, p.get(), n_th);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
+	TP->parallel_do([&it](int j){ it.invoke_mix(j); }, it.w);
 }
