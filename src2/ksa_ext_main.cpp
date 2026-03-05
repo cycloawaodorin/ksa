@@ -147,52 +147,50 @@ public:
 
 class ThreadPool {
 private:
-	class Thread {
-	public:
-		std::thread thread;
+	struct Thread {
 		bool ready;
+		std::thread thread;
 		std::mutex mx;
 		std::condition_variable cv;
 		Thread() : ready(false) {}
 	};
-	std::unique_ptr<Thread[]> threads;
 	int size;
+	bool alive;
+	std::unique_ptr<Thread[]> threads;
 	std::function<void(int)> func;
 	std::mutex gmx;
 	std::queue<int> jobs;
-	bool terminate;
 	void
 	listen(Thread *th)
 	{
-		for (;;) {
+		while (alive) {
 			{ // ジョブが来るまで待機
-				std::unique_lock<std::mutex> lk(th->mx);
+				auto lk=std::unique_lock(th->mx);
 				th->cv.wait(lk, [&]{ return th->ready; });
 			}
-			if ( terminate ) { // スレッドプールの破棄
-				return;
-			}
-			for (int i=INT_MAX; !jobs.empty();) {
+			int i; bool to_invoke=false;
+			while ( !jobs.empty() ) {
 				{ // ジョブの取り出し
-					std::lock_guard<std::mutex> lk(gmx);
+					auto lk=std::lock_guard(gmx);
 					if ( !jobs.empty() ) {
 						i = jobs.front();
 						jobs.pop();
+						to_invoke = true;
 					}
 				}
-				if ( i < INT_MAX ) { // ジョブ実行
+				if ( to_invoke ) { // ジョブ実行
 					func(i);
 				}
 			}
 			{ // 全ジョブ完了
-				std::lock_guard<std::mutex> lk(th->mx);
+				auto lk=std::lock_guard(th->mx);
 				th->ready = false;
 			}
 			th->cv.notify_one();
 		}
 	}
 public:
-	ThreadPool() : size(std::thread::hardware_concurrency()), terminate(false)
+	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true)
 	{
 		threads = std::make_unique<Thread[]>(size);
 		for (auto i=0; i<size; i++) {
@@ -202,14 +200,13 @@ public:
 	~ThreadPool()
 	{
 		{
+			alive = false;
 			for (auto i=0; i<size; i++) {
-				threads[i].mx.lock();
-				threads[i].ready = true;
-			}
-			terminate = true;
-			for (auto i=0; i<size; i++) {
-				threads[i].mx.unlock();
-				threads[i].cv.notify_all();
+				{
+					auto lk=std::lock_guard(threads[i].mx);
+					threads[i].ready = true;
+				}
+				threads[i].cv.notify_one();
 			}
 		}
 		for (auto i=0; i<size; i++) {
@@ -225,13 +222,13 @@ public:
 		}
 		for (auto i=0; i<size; i++) { // ワーカー起動
 			{
-				std::lock_guard<std::mutex> lk(threads[i].mx);
+				auto lk=std::lock_guard(threads[i].mx);
 				threads[i].ready = true;
 			}
 			threads[i].cv.notify_one();
 		}
 		for (auto i=0; i<size; i++) { // 全ワーカーの終了を待つ
-			std::unique_lock<std::mutex> lk(threads[i].mx);
+			auto lk=std::unique_lock(threads[i].mx);
 			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
 		}
 	}

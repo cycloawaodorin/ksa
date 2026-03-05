@@ -86,7 +86,7 @@ private:
 	void
 	set_alpha(const int &x, const int &y, const float &z)
 	{
-		PIXEL_RGBA *tag = data + (y*w+x);
+		auto tag = &data[y*w+x];
 		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
 	}
 	void
@@ -292,7 +292,7 @@ private:
 				w += wxy;
 			}
 		}
-		PIXEL_RGBA *d_px = dest + ( dy*(x.dest_size)+dx );
+		auto d_px = &dest[dy*(x.dest_size)+dx];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -380,15 +380,15 @@ private:
 		for ( int sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( int sx=(xrange.start); sx<(xrange.end); sx++ ) {
-				const PIXEL_RGBA *s_px = src + ( xs+(sx/x.sc) );
-				const std::intmax_t wa=static_cast<std::intmax_t>(s_px->a);
+				const auto s_px = &src[xs+(sx/x.sc)];
+				const auto wa=static_cast<std::intmax_t>(s_px->a);
 				r += s_px->r*wa;
 				g += s_px->g*wa;
 				b += s_px->b*wa;
 				a += wa;
 			}
 		}
-		PIXEL_RGBA *d_px = dest + ( dy*(x.dest_size)+dx );
+		auto d_px = &dest[dy*(x.dest_size)+dx];
 		d_px->r = uc_cast(r, a);
 		d_px->g = uc_cast(g, a);
 		d_px->b = uc_cast(b, a);
@@ -484,7 +484,7 @@ private:
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
 		for (int sy=start+skip; sy<end; sy+=2) {
 			const float wy = WEIGHTS[(sy-start)>>1];
-			const PIXEL_RGBA *s_px = dest+(sy*w+x);
+			const auto s_px = &dest[sy*w+x];
 			const float wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
@@ -492,7 +492,7 @@ private:
 			a += wya;
 			ww += wy;
 		}
-		PIXEL_RGBA *d_px = dest+(y*w+x);
+		auto d_px = &dest[y*w+x];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -543,8 +543,8 @@ private:
 	interpolate(const int &x, const int &y)
 	{
 		int idx = y*w+x;
-		PIXEL_RGBA *px_d = dest+idx;
-		const PIXEL_RGBA *px_p = past+idx, *px_f = future+idx;
+		auto px_d = &dest[idx];
+		const auto px_p = &past[idx], px_f = &future[idx];
 		if ( px_p->a == 255 && px_f->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
@@ -615,7 +615,7 @@ private:
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
 		for (int sy=start+skip; sy<end; sy+=2) {
 			const float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const PIXEL_RGBA *s_px = d+(sy*w+x);
+			const auto s_px = &d[sy*w+x];
 			const float wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
@@ -623,7 +623,7 @@ private:
 			a += wya;
 			ww += wy;
 		}
-		PIXEL_RGBA *d_px = d+(y*w+x);
+		auto d_px = &d[y*w+x];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -633,8 +633,8 @@ private:
 	interpolate_temporal(const int &x, const int &y)
 	{
 		const int idx = y*w+x;
-		PIXEL_RGBA *px_d = past_temp+idx;
-		const PIXEL_RGBA *px_f = future+idx;
+		auto px_d = &past_temp[idx];
+		const auto px_f = &future[idx];
 		if ( px_d->a == 255 && px_f->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
@@ -663,7 +663,7 @@ private:
 	mix(const int &x, const int &y)
 	{
 		const int idx = y*w+x;
-		PIXEL_RGBA *px_d=dest+idx, *px_t=past_temp+idx;
+		auto px_d=&dest[idx], px_t=&past_temp[idx];
 		if ( px_d->a == 255 && px_t->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
