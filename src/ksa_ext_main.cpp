@@ -8,11 +8,11 @@ namespace KSA {
 
 class Rational {
 private:
-	std::int64_t numerator, denominator;
+	std::intmax_t numerator, denominator;
 public:
-	Rational(const std::int64_t &num, const std::int64_t &den)
+	Rational(const std::intmax_t &num, const std::intmax_t &den)
 	{
-		std::int64_t c = std::gcd(std::abs(num), std::abs(den));
+		std::intmax_t c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
 			numerator = -num/c;
 			denominator = -den/c;
@@ -21,18 +21,18 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(const std::int64_t &i) : numerator(i), denominator(1)
+	Rational(const std::intmax_t &i) : numerator(i), denominator(1)
 	{
 	}
 	Rational() : numerator(0), denominator(1)
 	{
 	}
-	std::int64_t
+	std::intmax_t
 	get_numerator()
 	const {
 		return numerator;
 	}
-	std::int64_t
+	std::intmax_t
 	get_denominator()
 	const {
 		return denominator;
@@ -40,51 +40,51 @@ public:
 	Rational
 	operator +(const Rational &other)
 	const {
-		const std::int64_t c = std::gcd(denominator, other.denominator);
-		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::intmax_t c = std::gcd(denominator, other.denominator);
+		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator +(const std::int64_t &other)
+	operator +(const std::intmax_t &other)
 	const {
 		return Rational(numerator+other*denominator, denominator);
 	}
 	Rational
 	operator -(const Rational &other)
 	const {
-		const std::int64_t c = std::gcd(denominator, other.denominator);
-		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::intmax_t c = std::gcd(denominator, other.denominator);
+		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator -(const std::int64_t &other)
+	operator -(const std::intmax_t &other)
 	const {
 		return Rational(numerator-other*denominator, denominator);
 	}
 	Rational
 	operator *(const Rational &other)
 	const {
-		const std::int64_t ca = std::gcd(std::abs(numerator), other.denominator);
-		const std::int64_t cb = std::gcd(denominator, std::abs(other.numerator));
+		const std::intmax_t ca = std::gcd(std::abs(numerator), other.denominator);
+		const std::intmax_t cb = std::gcd(denominator, std::abs(other.numerator));
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
-	operator *(const std::int64_t &other)
+	operator *(const std::intmax_t &other)
 	const {
-		const std::int64_t c = std::gcd(std::abs(other), denominator);
+		const std::intmax_t c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
 	}
 	Rational
 	operator /(const Rational &other)
 	const {
-		const std::int64_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
-		const std::int64_t cb = std::gcd(denominator, other.denominator);
+		const std::intmax_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
+		const std::intmax_t cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
-	operator /(const std::int64_t &other)
+	operator /(const std::intmax_t &other)
 	const {
-		const std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
+		const std::intmax_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
 	Rational
@@ -92,40 +92,40 @@ public:
 	const {
 		return Rational(denominator, numerator);
 	}
-	std::int64_t
+	std::intmax_t
 	floor()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
 			return ( (numerator-r)/denominator );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	floor_eps()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
 			return ( (numerator-r)/denominator );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	ceil()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
 			return ( (numerator-r)/denominator + 1 );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	ceil_eps()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -175,9 +175,9 @@ uc_cast(const float &x)
 	}
 }
 static unsigned char
-uc_cast(std::int64_t num, std::int64_t den)
+uc_cast(int num, int den)
 {
-	std::int64_t c = std::gcd(std::abs(num), std::abs(den));
+	auto c = std::gcd(std::abs(num), std::abs(den));
 	if ( den < 0 ) {
 		num = -num/c;
 		den = -den/c;
@@ -190,7 +190,7 @@ uc_cast(std::int64_t num, std::int64_t den)
 	} else if ( 255*den <= num ) {
 		return static_cast<unsigned char>(255);
 	} else {
-		std::int64_t r = num % den;
+		auto r = num % den;
 		if ( r*2 < den ) {
 			return static_cast<unsigned char>((num-r)/den);
 		} else {

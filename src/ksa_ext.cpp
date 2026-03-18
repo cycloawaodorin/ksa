@@ -376,19 +376,19 @@ private:
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		std::int64_t b=0, g=0, r=0, a=0;
+		int b=0, g=0, r=0, a=0;
 		for ( int sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( int sx=(xrange.start); sx<(xrange.end); sx++ ) {
-				const PIXEL_BGRA *s_px = src + ( xs+(sx/x.sc) );
-				const std::int64_t wa=static_cast<std::int64_t>(s_px->a);
+				const auto s_px = &src[xs+(sx/x.sc)];
+				const auto wa = s_px->a;
 				b += s_px->b*wa;
 				g += s_px->g*wa;
 				r += s_px->r*wa;
 				a += wa;
 			}
 		}
-		PIXEL_BGRA *d_px = dest + ( dy*(x.dest_size)+dx );
+		auto d_px = &dest[dy*(x.dest_size)+dx];
 		d_px->b = uc_cast(b, a);
 		d_px->g = uc_cast(g, a);
 		d_px->r = uc_cast(r, a);
@@ -398,7 +398,7 @@ public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
 	XY x, y;
-	std::int64_t w;
+	int w;
 	void
 	invoke_interpolate(int i, const int &n_th)
 	{
@@ -432,7 +432,7 @@ ksa_clip_resize_ave(lua_State *L)
 	// パラメータ計算
 	p->x.calc_params();
 	p->y.calc_params();
-	p->w = static_cast<std::int64_t>((p->x.dc)*(p->y.dc));
+	p->w = (p->x.dc)*(p->y.dc);
 	
 	// 本処理
 	parallel_do(ClipResizeAve::invoke_interpolate, p.get(), n_th);
