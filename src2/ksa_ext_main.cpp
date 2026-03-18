@@ -3,7 +3,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
-#include <queue>
+#include <atomic>
+#include <format>
 #include <numeric>
 #include <cmath>
 #include <cstring>
@@ -154,12 +155,13 @@ private:
 		std::condition_variable cv;
 		Thread() : ready(false) {}
 	};
-	int size;
+	std::size_t size;
 	bool alive;
 	std::unique_ptr<Thread[]> threads;
 	std::function<void(int)> func;
 	std::mutex gmx;
-	std::queue<int> jobs;
+	std::atomic<int> current_i;
+	int max_i;
 	void
 	listen(Thread *th)
 	{
@@ -168,17 +170,9 @@ private:
 				auto lk=std::unique_lock(th->mx);
 				th->cv.wait(lk, [&]{ return th->ready; });
 			}
-			int i; bool to_invoke=false;
-			while ( !jobs.empty() ) {
-				{ // ジョブの取り出し
-					auto lk=std::lock_guard(gmx);
-					if ( !jobs.empty() ) {
-						i = jobs.front();
-						jobs.pop();
-						to_invoke = true;
-					}
-				}
-				if ( to_invoke ) { // ジョブ実行
+			for ( int i=max_i; current_i<max_i; ) { // ジョブの取り出しと実行
+				i = current_i++;
+				if ( i < max_i ) {
 					func(i);
 				}
 			}
@@ -193,15 +187,15 @@ public:
 	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true)
 	{
 		threads = std::make_unique<Thread[]>(size);
-		for (auto i=0; i<size; i++) {
-			threads[i].thread = std::thread(listen, this, &threads[i]);
+		for (std::size_t i=0; i<size; i++) {
+			threads[i].thread = std::thread([this, i](){listen(&threads[i]);});
 		}
 	}
 	~ThreadPool()
 	{
 		{
 			alive = false;
-			for (auto i=0; i<size; i++) {
+			for (std::size_t i=0; i<size; i++) {
 				{
 					auto lk=std::lock_guard(threads[i].mx);
 					threads[i].ready = true;
@@ -209,28 +203,32 @@ public:
 				threads[i].cv.notify_one();
 			}
 		}
-		for (auto i=0; i<size; i++) {
+		for (std::size_t i=0; i<size; i++) {
 			threads[i].thread.join();
 		}
+		func = nullptr;
 	}
 	void
 	parallel_do(std::function<void(int)> f, int n)
 	{
 		func = f; // ジョブ関数
-		for (int i=0; i<n; i++) {
-			jobs.push(i); // ジョブ引数をセット
-		}
-		for (auto i=0; i<size; i++) { // ワーカー起動
+		current_i = 0; max_i = n;
+		for (std::size_t i=0; i<size; i++) { // ワーカー起動
 			{
 				auto lk=std::lock_guard(threads[i].mx);
 				threads[i].ready = true;
 			}
 			threads[i].cv.notify_one();
 		}
-		for (auto i=0; i<size; i++) { // 全ワーカーの終了を待つ
+		for (std::size_t i=0; i<size; i++) { // 全ワーカーの終了を待つ
 			auto lk=std::unique_lock(threads[i].mx);
 			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
 		}
+	}
+	std::size_t
+	get_size()
+	{
+		return size;
 	}
 };
 static std::unique_ptr<ThreadPool> TP;
@@ -252,9 +250,9 @@ uc_cast(const float &x)
 	}
 }
 static unsigned char
-uc_cast(std::intmax_t num, std::intmax_t den)
+uc_cast(int num, int den)
 {
-	std::intmax_t c = std::gcd(std::abs(num), std::abs(den));
+	auto c = std::gcd(std::abs(num), std::abs(den));
 	if ( den < 0 ) {
 		num = -num/c;
 		den = -den/c;
@@ -267,7 +265,7 @@ uc_cast(std::intmax_t num, std::intmax_t den)
 	} else if ( 255*den <= num ) {
 		return static_cast<unsigned char>(255);
 	} else {
-		std::intmax_t r = num % den;
+		auto r = num % den;
 		if ( r*2 < den ) {
 			return static_cast<unsigned char>((num-r)/den);
 		} else {

@@ -1,8 +1,8 @@
-CXX = g++
-CXXWFLAGS = -Wall -Wextra -Wdeprecated-declarations -Wpointer-arith -Wwrite-strings -Wmissing-noreturn -Wno-unused-parameter -Wsuggest-attribute=format -Wsuggest-attribute=noreturn -Wunused-variable -Winit-self -Wshadow -Wlogical-op -Wconversion -Wold-style-cast
+CXX = clang
+CXXWFLAGS = -Wall -Wextra -Wdeprecated -Wpointer-arith -Wwrite-strings -Wmissing-noreturn -Wno-unused-parameter -Wunused-variable -Winit-self -Wshadow -Wconversion -Wold-style-cast
 CXXFLAGS = -c -O3 -std=c++23
 INCLUDES = 
-LD = g++
+LD = clang
 LDFLAGS = -shared -Wl,--dll,--enable-stdcall-fixup
 LIBS = -static -lstdc++ -lwinpthread
 RM = rm -f
