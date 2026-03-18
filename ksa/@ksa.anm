@@ -62,7 +62,7 @@ ksa.drawrect(x0, y0, x1, y1)
 --track2:Y,0,10000,100,0.01
 --track3:平均法,0,1,0,1
 --check0:ドット数でサイズ指定,0
---dialog:スレッド数,local n_th=-1;上,local ct=0;下,local cb=0;左,local cl=0;右,local cr=0;
+--dialog:上,local ct=0;下,local cb=0;左,local cl=0;右,local cr=0;
 
 local ksa = require("ksa")
 local src, sw, sh = obj.getpixeldata("alloc")
@@ -104,9 +104,9 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		dest, dw, dh = obj.getpixeldata()
 	end
 	if ( obj.track3 == 0 ) then
-		ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+		ksa.clip_resize(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
 	else
-		ksa.clip_resize_ave(src, sw, sh, dest, dw, dh, ct, cb, cl, cr, n_th)
+		ksa.clip_resize_ave(src, sw, sh, dest, dw, dh, ct, cb, cl, cr)
 	end
 	obj.putpixeldata(dest)
 else
@@ -117,7 +117,6 @@ end
 @インターレース解除
 --track0:解除法,0,4,2,1
 --track1:BFF/TFF,0,1,1,1
---track2:スレッド数,-128,128,0,1
 --file:
 
 local ksa = require("ksa")
@@ -127,19 +126,19 @@ local dest, w, h = obj.getpixeldata("alloc")
 if ( obj.track0 == 1 ) then -- 無補間
 	ksa.deinterlace_nn(dest, w, h, XOR(obj.frame%2, obj.track1))
 elseif ( obj.track0 == 2 ) then -- 空間方向補間
-	ksa.deinterlace_spatial(dest, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+	ksa.deinterlace_spatial(dest, w, h, XOR(obj.frame%2, obj.track1))
 elseif ( obj.track0 == 3 ) then -- 時間方向補間
 	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
 	local bf, _w, _h = obj.getpixeldata("alloc")
 	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
 	local af, _w, _h = obj.getpixeldata("alloc")
-	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+	ksa.deinterlace_temporal(dest, bf, af, w, h, XOR(obj.frame%2, obj.track1))
 elseif ( obj.track0 == 4 ) then -- 時間方向補間 with 二重化
 	obj.load("movie", file, (obj.frame-0.5-1)/obj.framerate)
 	local past, _w, _h = obj.getpixeldata("alloc")
 	obj.load("movie", file, (obj.frame-0.5+1)/obj.framerate)
 	local future, _w, _h = obj.getpixeldata("alloc")
-	ksa.deinterlace_ghost(dest, past, future, w, h, XOR(obj.frame%2, obj.track1), obj.track2)
+	ksa.deinterlace_ghost(dest, past, future, w, h, XOR(obj.frame%2, obj.track1))
 else
 	-- 何もしない
 end

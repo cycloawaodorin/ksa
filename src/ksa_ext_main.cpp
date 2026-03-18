@@ -1,5 +1,9 @@
 #include "lua/lua.hpp"
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <atomic>
 #include <numeric>
 #include <cmath>
 #include <cstring>
@@ -8,11 +12,11 @@ namespace KSA {
 
 class Rational {
 private:
-	std::int64_t numerator, denominator;
+	std::intmax_t numerator, denominator;
 public:
-	Rational(const std::int64_t &num, const std::int64_t &den)
+	Rational(const std::intmax_t &num, const std::intmax_t &den)
 	{
-		std::int64_t c = std::gcd(std::abs(num), std::abs(den));
+		std::intmax_t c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
 			numerator = -num/c;
 			denominator = -den/c;
@@ -21,18 +25,18 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(const std::int64_t &i) : numerator(i), denominator(1)
+	Rational(const std::intmax_t &i) : numerator(i), denominator(1)
 	{
 	}
 	Rational() : numerator(0), denominator(1)
 	{
 	}
-	std::int64_t
+	std::intmax_t
 	get_numerator()
 	const {
 		return numerator;
 	}
-	std::int64_t
+	std::intmax_t
 	get_denominator()
 	const {
 		return denominator;
@@ -40,51 +44,51 @@ public:
 	Rational
 	operator +(const Rational &other)
 	const {
-		const std::int64_t c = std::gcd(denominator, other.denominator);
-		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::intmax_t c = std::gcd(denominator, other.denominator);
+		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator +(const std::int64_t &other)
+	operator +(const std::intmax_t &other)
 	const {
 		return Rational(numerator+other*denominator, denominator);
 	}
 	Rational
 	operator -(const Rational &other)
 	const {
-		const std::int64_t c = std::gcd(denominator, other.denominator);
-		const std::int64_t s_d = denominator/c, o_d = other.denominator/c;
+		const std::intmax_t c = std::gcd(denominator, other.denominator);
+		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
 	Rational
-	operator -(const std::int64_t &other)
+	operator -(const std::intmax_t &other)
 	const {
 		return Rational(numerator-other*denominator, denominator);
 	}
 	Rational
 	operator *(const Rational &other)
 	const {
-		const std::int64_t ca = std::gcd(std::abs(numerator), other.denominator);
-		const std::int64_t cb = std::gcd(denominator, std::abs(other.numerator));
+		const std::intmax_t ca = std::gcd(std::abs(numerator), other.denominator);
+		const std::intmax_t cb = std::gcd(denominator, std::abs(other.numerator));
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
-	operator *(const std::int64_t &other)
+	operator *(const std::intmax_t &other)
 	const {
-		const std::int64_t c = std::gcd(std::abs(other), denominator);
+		const std::intmax_t c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
 	}
 	Rational
 	operator /(const Rational &other)
 	const {
-		const std::int64_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
-		const std::int64_t cb = std::gcd(denominator, other.denominator);
+		const std::intmax_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
+		const std::intmax_t cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
-	operator /(const std::int64_t &other)
+	operator /(const std::intmax_t &other)
 	const {
-		const std::int64_t c = std::gcd(std::abs(numerator), std::abs(other));
+		const std::intmax_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
 	Rational
@@ -92,40 +96,40 @@ public:
 	const {
 		return Rational(denominator, numerator);
 	}
-	std::int64_t
+	std::intmax_t
 	floor()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
 			return ( (numerator-r)/denominator );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	floor_eps()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
 			return ( (numerator-r)/denominator );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	ceil()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
 			return ( (numerator-r)/denominator + 1 );
 		}
 	}
-	std::int64_t
+	std::intmax_t
 	ceil_eps()
 	const {
-		const std::int64_t r = numerator % denominator;
+		const std::intmax_t r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -139,22 +143,92 @@ public:
 	}
 };
 
-template <class T>
-static void
-parallel_do(void (T::*f)(int, const int &), T *p, const int &n)
-{
-	if ( 1 < n ) {
-		auto threads=std::make_unique<std::thread[]>(n);
-		for (int i=0; i<n; i++) {
-			threads[i] = std::thread(f, p, i, n);
+class ThreadPool {
+private:
+	struct Thread {
+		bool ready;
+		std::thread thread;
+		std::mutex mx;
+		std::condition_variable cv;
+		Thread() : ready(false) {}
+	};
+	std::size_t size;
+	bool alive;
+	std::unique_ptr<Thread[]> threads;
+	std::function<void(int)> func;
+	std::mutex gmx;
+	std::atomic<int> current_i;
+	int max_i;
+	void
+	listen(Thread *th)
+	{
+		while (alive) {
+			{ // ジョブが来るまで待機
+				auto lk=std::unique_lock(th->mx);
+				th->cv.wait(lk, [&]{ return th->ready; });
+			}
+			for ( int i=max_i; current_i<max_i; ) { // ジョブの取り出しと実行
+				i = current_i++;
+				if ( i < max_i ) {
+					func(i);
+				}
+			}
+			{ // 全ジョブ完了
+				auto lk=std::lock_guard(th->mx);
+				th->ready = false;
+			}
+			th->cv.notify_one();
 		}
-		for (int i=0; i<n; i++) {
-			threads[i].join();
-		}
-	} else {
-		(p->*f)(0, n);
 	}
-}
+public:
+	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true)
+	{
+		threads = std::make_unique<Thread[]>(size);
+		for (std::size_t i=0; i<size; i++) {
+			threads[i].thread = std::thread([this, i](){listen(&threads[i]);});
+		}
+	}
+	~ThreadPool()
+	{
+		{
+			alive = false;
+			for (std::size_t i=0; i<size; i++) {
+				{
+					auto lk=std::lock_guard(threads[i].mx);
+					threads[i].ready = true;
+				}
+				threads[i].cv.notify_one();
+			}
+		}
+		for (std::size_t i=0; i<size; i++) {
+			threads[i].thread.join();
+		}
+		func = nullptr;
+	}
+	void
+	parallel_do(std::function<void(int)> f, int n)
+	{
+		func = f; // ジョブ関数
+		current_i = 0; max_i = n;
+		for (std::size_t i=0; i<size; i++) { // ワーカー起動
+			{
+				auto lk=std::lock_guard(threads[i].mx);
+				threads[i].ready = true;
+			}
+			threads[i].cv.notify_one();
+		}
+		for (std::size_t i=0; i<size; i++) { // 全ワーカーの終了を待つ
+			auto lk=std::unique_lock(threads[i].mx);
+			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
+		}
+	}
+	std::size_t
+	get_size()
+	{
+		return size;
+	}
+};
+static std::unique_ptr<ThreadPool> TP;
 
 constexpr static const float PI = 3.141592653589793f;
 struct PIXEL_BGRA {
@@ -175,9 +249,9 @@ uc_cast(const float &x)
 	}
 }
 static unsigned char
-uc_cast(std::int64_t num, std::int64_t den)
+uc_cast(int num, int den)
 {
-	std::int64_t c = std::gcd(std::abs(num), std::abs(den));
+	auto c = std::gcd(std::abs(num), std::abs(den));
 	if ( den < 0 ) {
 		num = -num/c;
 		den = -den/c;
@@ -190,24 +264,13 @@ uc_cast(std::int64_t num, std::int64_t den)
 	} else if ( 255*den <= num ) {
 		return static_cast<unsigned char>(255);
 	} else {
-		std::int64_t r = num % den;
+		auto r = num % den;
 		if ( r*2 < den ) {
 			return static_cast<unsigned char>((num-r)/den);
 		} else {
 			return static_cast<unsigned char>((num-r)/den+1);
 		}
 	}
-}
-static int
-n_th_correction(int n_th)
-{
-	if ( n_th <= 0 ) {
-		n_th += std::thread::hardware_concurrency();
-		if ( n_th <= 0 ) {
-			n_th = 1;
-		}
-	}
-	return n_th;
 }
 
 #include "ksa_ext.cpp"
@@ -223,6 +286,7 @@ extern "C" {
 int
 luaopen_ksa_ext(lua_State *L)
 {
+	KSA::TP = std::make_unique<KSA::ThreadPool>();
 	luaL_register(L, "ksa_ext", ksa_ext);
 	return 1;
 }

@@ -21,13 +21,17 @@ public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	int w, h, type;
 	void
-	invoke_calc_grad(int y)
+	invoke_calc_grad(int i, const int &n_th)
 	{
-		auto p=&data[y*w];
-		float fy = static_cast<float>(y);
-		for (int x=0; x<w; x++) {
-			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
-			p++;
+		const auto y_start = ( i*h )/n_th;
+		const auto y_end = ( (i+1)*h )/n_th;
+		for (auto y=y_start; y<y_end; y++) {
+			auto p = &data[y*w];
+			auto fy = static_cast<float>(y);
+			for (auto x=0; x<w; x++) {
+				p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
+				p++;
+			}
 		}
 	}
 };
@@ -43,8 +47,8 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	it.h = param->get_param_int(i++);
 	it.cx = static_cast<float>(param->get_param_double(i++));
 	it.cy = static_cast<float>(param->get_param_double(i++));
-	const float angle = static_cast<float>(param->get_param_double(i++));
-	const float gwidth = static_cast<float>(param->get_param_double(i++));
+	const auto angle = static_cast<float>(param->get_param_double(i++));
+	const auto gwidth = static_cast<float>(param->get_param_double(i++));
 	it.a0 = static_cast<float>(param->get_param_double(i++));
 	it.a1 = static_cast<float>(param->get_param_double(i++));
 	it.type = param->get_param_int(i++);
@@ -56,7 +60,8 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	TP->parallel_do([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+	int n = static_cast<int>(TP->get_size());
+	TP->parallel_do([&it, n](int j){ it.invoke_calc_grad(j, n); }, n);
 }
 
 // 縁透明グラデーション
@@ -86,7 +91,7 @@ private:
 	void
 	set_alpha(const int &x, const int &y, const float &z)
 	{
-		PIXEL_RGBA *tag = data + (y*w+x);
+		auto tag = &data[y*w+x];
 		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
 	}
 	void
@@ -223,9 +228,9 @@ private:
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		void
-		calc_range(const int &dest, RANGE *range)
+		calc_range(const int &_dest, RANGE *range)
 		const {
-			range->center = reversed_scale*dest+correction;
+			range->center = reversed_scale*_dest+correction;
 			if ( extend ) {
 				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
 				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
@@ -250,23 +255,24 @@ private:
 			correction = (reversed_scale-1)/2 + clip_start;
 			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
 			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
-			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
+			weights = std::make_unique<std::unique_ptr<float[]>[]>(static_cast<std::size_t>(var));
 		}
 		void
 		set_weights(const int i)
 		{
 			const Rational c = reversed_scale*i + correction;
-			int s, e;
+			std::intmax_t s, e;
 			if ( extend ) {
-				s = static_cast<int>( c.ceil_eps() ) - 3;
-				e = static_cast<int>( c.floor_eps() ) + 3;
+				s = c.ceil_eps() - 3;
+				e = c.floor_eps() + 3;
 			} else {
-				s = static_cast<int>( ( c - reversed_scale*3 ).ceil_eps() );
-				e = static_cast<int>( ( c + reversed_scale*3 ).floor_eps() );
+				s = ( c - reversed_scale*3 ).ceil_eps();
+				e = ( c + reversed_scale*3 ).floor_eps();
 			}
-			weights[i] = std::make_unique<float[]>(e-s+1);
-			for ( int sxy = s; sxy <= e; sxy++ ) {
-				weights[i][sxy-s] = lanczos3( ((c-sxy)*weight_scale).to_float() );
+			auto j = static_cast<std::size_t>(i);
+			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1));
+			for ( auto sxy = s; sxy <= e; sxy++ ) {
+				weights[j][static_cast<std::size_t>(sxy-s)] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 			}
 		}
 	};
@@ -277,14 +283,14 @@ private:
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		const float *wxs = x.weights[ dx % (x.var) ].get();
-		const float *wys = y.weights[ dy % (y.var) ].get();
-		for ( int sy=(yrange.start); sy<=(yrange.end); sy++ ) {
-			const float wy = wys[sy-(yrange.start)+(yrange.skipped)];
-			for ( int sx=(xrange.start); sx<=(xrange.end); sx++ ) {
-				const float wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
-				const PIXEL_RGBA *s_px = src + ( sy*(x.src_size)+sx );
-				const float wxya = wxy*s_px->a;
+		const auto *wxs = x.weights[ static_cast<std::size_t>( dx % (x.var) ) ].get();
+		const auto *wys = y.weights[ static_cast<std::size_t>( dy % (y.var) ) ].get();
+		for ( auto sy=(yrange.start); sy<=(yrange.end); sy++ ) {
+			const auto wy = wys[sy-(yrange.start)+(yrange.skipped)];
+			for ( auto sx=(xrange.start); sx<=(xrange.end); sx++ ) {
+				const auto wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
+				const PIXEL_RGBA *s_px = &src[ sy*(x.src_size)+sx ];
+				const auto wxya = wxy*s_px->a;
 				r += s_px->r*wxya;
 				g += s_px->g*wxya;
 				b += s_px->b*wxya;
@@ -292,7 +298,7 @@ private:
 				w += wxy;
 			}
 		}
-		PIXEL_RGBA *d_px = dest + ( dy*(x.dest_size)+dx );
+		auto d_px = &dest[dy*(x.dest_size)+dx];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -356,10 +362,10 @@ private:
 			int start, end;
 		};
 		void
-		calc_range(const int &dest, RANGE *range)
+		calc_range(const int &_dest, RANGE *range)
 		const {
-			range->start = dest*dc;
-			range->end = (dest+1)*dc;
+			range->start = _dest*dc;
+			range->end = (_dest+1)*dc;
 		}
 		void
 		calc_params()
@@ -376,19 +382,19 @@ private:
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		std::intmax_t b=0, g=0, r=0, a=0;
-		for ( int sy=(yrange.start); sy<(yrange.end); sy++ ) {
-			const int xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
-			for ( int sx=(xrange.start); sx<(xrange.end); sx++ ) {
-				const PIXEL_RGBA *s_px = src + ( xs+(sx/x.sc) );
-				const std::intmax_t wa=static_cast<std::intmax_t>(s_px->a);
+		int b=0, g=0, r=0, a=0;
+		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
+			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
+			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
+				const auto s_px = &src[xs+(sx/x.sc)];
+				const auto wa=static_cast<std::intmax_t>(s_px->a);
 				r += s_px->r*wa;
 				g += s_px->g*wa;
 				b += s_px->b*wa;
 				a += wa;
 			}
 		}
-		PIXEL_RGBA *d_px = dest + ( dy*(x.dest_size)+dx );
+		auto d_px = &dest[dy*(x.dest_size)+dx];
 		d_px->r = uc_cast(r, a);
 		d_px->g = uc_cast(g, a);
 		d_px->b = uc_cast(b, a);
@@ -398,12 +404,16 @@ public:
 	const PIXEL_RGBA *src;
 	PIXEL_RGBA *dest;
 	XY x, y;
-	std::intmax_t w;
+	int w;
 	void
-	invoke_interpolate(int dy)
+	invoke_interpolate(int i, const int &n_th)
 	{
-		for (int dx=0; dx<(x.dest_size); dx++) {
-			interpolate(dx, dy);
+		const int y_start = ( i*(y.dest_size) )/n_th;
+		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
+		for (auto dy=y_start; dy<y_end; dy++) {
+			for (auto dx=0; dx<(x.dest_size); dx++) {
+				interpolate(dx, dy);
+			}
 		}
 	}
 };
@@ -428,10 +438,11 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 	// パラメータ計算
 	it.x.calc_params();
 	it.y.calc_params();
-	it.w = static_cast<std::intmax_t>((it.x.dc)*(it.y.dc));
+	it.w = (it.x.dc)*(it.y.dc);
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	int n = static_cast<int>(TP->get_size());
+	TP->parallel_do([&it, n](int i){it.invoke_interpolate(i, n);}, n);
 }
 
 class DiNN {
@@ -442,10 +453,13 @@ public:
 	void
 	doubling(int i)
 	{
+		auto e=static_cast<std::size_t>(i*2*w);
+		auto o=static_cast<std::size_t>((i*2+1)*w);
+		auto len=static_cast<std::size_t>(w)*sizeof(PIXEL_RGBA);
 		if ( top ) {
-			std::memcpy(&dest[i*2*w], &dest[(i*2+1)*w], sizeof(PIXEL_RGBA)*w);
+			std::memcpy(&dest[e], &dest[o], len);
 		} else {
-			std::memcpy(&dest[(i*2+1)*w], &dest[i*2*w], sizeof(PIXEL_RGBA)*w);
+			std::memcpy(&dest[o], &dest[e], len);
 		}
 	}
 };
@@ -482,17 +496,17 @@ private:
 			end = h;
 		}
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
-		for (int sy=start+skip; sy<end; sy+=2) {
-			const float wy = WEIGHTS[(sy-start)>>1];
-			const PIXEL_RGBA *s_px = dest+(sy*w+x);
-			const float wya = wy*s_px->a;
+		for (auto sy=start+skip; sy<end; sy+=2) {
+			const auto wy = WEIGHTS[(sy-start)>>1];
+			const auto s_px = &dest[sy*w+x];
+			const auto wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
 			b += s_px->b*wya;
 			a += wya;
 			ww += wy;
 		}
-		PIXEL_RGBA *d_px = dest+(y*w+x);
+		auto d_px = &dest[y*w+x];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -543,8 +557,8 @@ private:
 	interpolate(const int &x, const int &y)
 	{
 		int idx = y*w+x;
-		PIXEL_RGBA *px_d = dest+idx;
-		const PIXEL_RGBA *px_p = past+idx, *px_f = future+idx;
+		auto px_d = &dest[idx];
+		const auto px_p = &past[idx], px_f = &future[idx];
 		if ( px_p->a == 255 && px_f->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
@@ -613,17 +627,17 @@ private:
 			end = h;
 		}
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
-		for (int sy=start+skip; sy<end; sy+=2) {
-			const float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const PIXEL_RGBA *s_px = d+(sy*w+x);
-			const float wya = wy*s_px->a;
+		for (auto sy=start+skip; sy<end; sy+=2) {
+			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
+			const auto s_px = &d[sy*w+x];
+			const auto wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
 			b += s_px->b*wya;
 			a += wya;
 			ww += wy;
 		}
-		PIXEL_RGBA *d_px = d+(y*w+x);
+		auto d_px = &d[y*w+x];
 		d_px->r = uc_cast(r/a);
 		d_px->g = uc_cast(g/a);
 		d_px->b = uc_cast(b/a);
@@ -633,8 +647,8 @@ private:
 	interpolate_temporal(const int &x, const int &y)
 	{
 		const int idx = y*w+x;
-		PIXEL_RGBA *px_d = past_temp+idx;
-		const PIXEL_RGBA *px_f = future+idx;
+		auto px_d = &past_temp[idx];
+		const auto px_f = &future[idx];
 		if ( px_d->a == 255 && px_f->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
@@ -663,7 +677,7 @@ private:
 	mix(const int &x, const int &y)
 	{
 		const int idx = y*w+x;
-		PIXEL_RGBA *px_d=dest+idx, *px_t=past_temp+idx;
+		auto px_d=&dest[idx], px_t=&past_temp[idx];
 		if ( px_d->a == 255 && px_t->a == 255 ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
@@ -686,11 +700,11 @@ public:
 	invoke_interpolate0(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate0(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate0(x, y);
 			}
 		}
@@ -699,11 +713,11 @@ public:
 	invoke_interpolate1(int x)
 	{
 		if ( top ) {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate1(x, y);
 			}
 		} else {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate1(x, y);
 			}
 		}
@@ -711,7 +725,7 @@ public:
 	void
 	invoke_mix(int x)
 	{
-		for (int y=0; y<h; y++) {
+		for (auto y=0; y<h; y++) {
 			mix(x, y);
 		}
 	}
