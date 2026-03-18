@@ -21,13 +21,17 @@ public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	int w, h, type;
 	void
-	invoke_calc_grad(int y)
+	invoke_calc_grad(int i, const int &n_th)
 	{
-		auto p=&data[y*w];
-		float fy = static_cast<float>(y);
-		for (int x=0; x<w; x++) {
-			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
-			p++;
+		const auto y_start = ( i*h )/n_th;
+		const auto y_end = ( (i+1)*h )/n_th;
+		for (auto y=y_start; y<y_end; y++) {
+			auto p = &data[y*w];
+			auto fy = static_cast<float>(y);
+			for (auto x=0; x<w; x++) {
+				p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
+				p++;
+			}
 		}
 	}
 };
@@ -43,8 +47,8 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	it.h = param->get_param_int(i++);
 	it.cx = static_cast<float>(param->get_param_double(i++));
 	it.cy = static_cast<float>(param->get_param_double(i++));
-	const float angle = static_cast<float>(param->get_param_double(i++));
-	const float gwidth = static_cast<float>(param->get_param_double(i++));
+	const auto angle = static_cast<float>(param->get_param_double(i++));
+	const auto gwidth = static_cast<float>(param->get_param_double(i++));
 	it.a0 = static_cast<float>(param->get_param_double(i++));
 	it.a1 = static_cast<float>(param->get_param_double(i++));
 	it.type = param->get_param_int(i++);
@@ -56,7 +60,8 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	TP->parallel_do([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+	int n = static_cast<int>(TP->get_size());
+	TP->parallel_do([&it, n](int j){ it.invoke_calc_grad(j, n); }, n);
 }
 
 // 縁透明グラデーション
@@ -491,10 +496,10 @@ private:
 			end = h;
 		}
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
-		for (int sy=start+skip; sy<end; sy+=2) {
-			const float wy = WEIGHTS[(sy-start)>>1];
+		for (auto sy=start+skip; sy<end; sy+=2) {
+			const auto wy = WEIGHTS[(sy-start)>>1];
 			const auto s_px = &dest[sy*w+x];
-			const float wya = wy*s_px->a;
+			const auto wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
 			b += s_px->b*wya;
@@ -622,10 +627,10 @@ private:
 			end = h;
 		}
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
-		for (int sy=start+skip; sy<end; sy+=2) {
-			const float wy = DiSpatial::WEIGHTS[(sy-start)>>1];
+		for (auto sy=start+skip; sy<end; sy+=2) {
+			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
 			const auto s_px = &d[sy*w+x];
-			const float wya = wy*s_px->a;
+			const auto wya = wy*s_px->a;
 			r += s_px->r*wya;
 			g += s_px->g*wya;
 			b += s_px->b*wya;
@@ -695,11 +700,11 @@ public:
 	invoke_interpolate0(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate0(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate0(x, y);
 			}
 		}
@@ -708,11 +713,11 @@ public:
 	invoke_interpolate1(int x)
 	{
 		if ( top ) {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate1(x, y);
 			}
 		} else {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate1(x, y);
 			}
 		}
@@ -720,7 +725,7 @@ public:
 	void
 	invoke_mix(int x)
 	{
-		for (int y=0; y<h; y++) {
+		for (auto y=0; y<h; y++) {
 			mix(x, y);
 		}
 	}
