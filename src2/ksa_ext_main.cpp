@@ -9,10 +9,24 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#include <format>
 #include "module2.hpp"
 #include "version.hpp"
 
 namespace KSA {
+
+void
+debug_print(std::wstring_view wstr)
+{
+    OutputDebugStringW(wstr.data());
+}
+
+template<typename... Args>
+void
+debug_print(std::wformat_string<Args...> fmt, Args&&... args)
+{
+	OutputDebugStringW(std::format(fmt, std::forward<Args>(args)...).c_str());
+}
 
 class Rational {
 private:
