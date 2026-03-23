@@ -384,12 +384,12 @@ private:
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		int b=0, g=0, r=0, a=0;
+		std::uint64_t b=0, g=0, r=0, a=0;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const auto s_px = &src[xs+(sx/x.sc)];
-				const auto wa = static_cast<int>(s_px->a);
+				const auto wa = static_cast<std::uint64_t>(s_px->a);
 				b += s_px->b*wa;
 				g += s_px->g*wa;
 				r += s_px->r*wa;
@@ -439,7 +439,7 @@ ksa_clip_resize_ave(lua_State *L)
 	// パラメータ計算
 	it.x.calc_params();
 	it.y.calc_params();
-	it.w = (it.x.dc)*(it.y.dc);
+	it.w = static_cast<std::uint64_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
 	int n = static_cast<int>(TP->get_size());
