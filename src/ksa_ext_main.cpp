@@ -7,6 +7,7 @@
 #include <numeric>
 #include <cmath>
 #include <cstring>
+#include <stdexcept>
 
 namespace KSA {
 
@@ -16,6 +17,9 @@ private:
 public:
 	Rational(const std::intmax_t &num, const std::intmax_t &den)
 	{
+		if ( den == 0 ) {
+			throw std::invalid_argument("denominator must not be zero");
+		}
 		std::intmax_t c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
 			numerator = -num/c;
@@ -249,23 +253,15 @@ uc_cast(const float &x)
 	}
 }
 static unsigned char
-uc_cast(int num, int den)
+uc_cast(std::uint64_t num, std::uint64_t den)
 {
-	auto c = std::gcd(std::abs(num), std::abs(den));
-	if ( den < 0 ) {
-		num = -num/c;
-		den = -den/c;
-	} else {
-		num = num/c;
-		den = den/c;
-	}
-	if ( num <= 0 ) {
-		return static_cast<unsigned char>(0);
-	} else if ( 255*den <= num ) {
-		return static_cast<unsigned char>(255);
+	if ( num == 0u ) {
+		return static_cast<unsigned char>(0u);
+	} else if ( 255u*den <= num ) {
+		return static_cast<unsigned char>(255u);
 	} else {
 		auto r = num % den;
-		if ( r*2 < den ) {
+		if ( r*2u < den ) {
 			return static_cast<unsigned char>((num-r)/den);
 		} else {
 			return static_cast<unsigned char>((num-r)/den+1);
