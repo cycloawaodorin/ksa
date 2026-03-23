@@ -387,7 +387,7 @@ private:
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const auto s_px = &src[xs+(sx/x.sc)];
-				const auto wa=static_cast<std::intmax_t>(s_px->a);
+				const auto wa=static_cast<int>(s_px->a);
 				r += s_px->r*wa;
 				g += s_px->g*wa;
 				b += s_px->b*wa;
