@@ -85,6 +85,9 @@ public:
 	Rational
 	operator /(const Rational &other)
 	const {
+		if ( other.numerator == 0 ) {
+			throw std::invalid_argument("divisor must not be zero");
+		}
 		const std::intmax_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
 		const std::intmax_t cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
@@ -92,6 +95,9 @@ public:
 	Rational
 	operator /(const std::intmax_t &other)
 	const {
+		if ( other == 0 ) {
+			throw std::invalid_argument("divisor must not be zero");
+		}
 		const std::intmax_t c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
