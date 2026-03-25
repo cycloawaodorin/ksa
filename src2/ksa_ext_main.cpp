@@ -37,7 +37,7 @@ public:
 		if ( den == 0 ) {
 			throw std::invalid_argument("denominator must not be zero");
 		}
-		std::intmax_t c = std::gcd(std::abs(num), std::abs(den));
+		auto c = std::gcd(std::abs(num), std::abs(den));
 		if ( den < 0 ) {
 			numerator = -num/c;
 			denominator = -den/c;
@@ -65,8 +65,8 @@ public:
 	Rational
 	operator +(const Rational &other)
 	const {
-		const std::intmax_t c = std::gcd(denominator, other.denominator);
-		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
+		const auto c = std::gcd(denominator, other.denominator);
+		const auto s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d+other.numerator*s_d, denominator*o_d);
 	}
 	Rational
@@ -77,8 +77,8 @@ public:
 	Rational
 	operator -(const Rational &other)
 	const {
-		const std::intmax_t c = std::gcd(denominator, other.denominator);
-		const std::intmax_t s_d = denominator/c, o_d = other.denominator/c;
+		const auto c = std::gcd(denominator, other.denominator);
+		const auto s_d = denominator/c, o_d = other.denominator/c;
 		return Rational(numerator*o_d-other.numerator*s_d, denominator*o_d);
 	}
 	Rational
@@ -89,14 +89,14 @@ public:
 	Rational
 	operator *(const Rational &other)
 	const {
-		const std::intmax_t ca = std::gcd(std::abs(numerator), other.denominator);
-		const std::intmax_t cb = std::gcd(denominator, std::abs(other.numerator));
+		const auto ca = std::gcd(std::abs(numerator), other.denominator);
+		const auto cb = std::gcd(denominator, std::abs(other.numerator));
 		return Rational((numerator/ca) * (other.numerator/cb), (denominator/cb) * (other.denominator/ca));
 	}
 	Rational
 	operator *(const std::intmax_t &other)
 	const {
-		const std::intmax_t c = std::gcd(std::abs(other), denominator);
+		const auto c = std::gcd(std::abs(other), denominator);
 		return Rational(numerator*(other/c), denominator/c);
 	}
 	Rational
@@ -105,8 +105,8 @@ public:
 		if ( other.numerator == 0 ) {
 			throw std::invalid_argument("divisor must not be zero");
 		}
-		const std::intmax_t ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
-		const std::intmax_t cb = std::gcd(denominator, other.denominator);
+		const auto ca = std::gcd(std::abs(numerator), std::abs(other.numerator));
+		const auto cb = std::gcd(denominator, other.denominator);
 		return Rational((numerator/ca) * (other.denominator/cb), (denominator/cb) * (other.numerator/ca));
 	}
 	Rational
@@ -115,7 +115,7 @@ public:
 		if ( other == 0 ) {
 			throw std::invalid_argument("divisor must not be zero");
 		}
-		const std::intmax_t c = std::gcd(std::abs(numerator), std::abs(other));
+		const auto c = std::gcd(std::abs(numerator), std::abs(other));
 		return Rational(numerator/c, denominator*(other/c));
 	}
 	Rational
@@ -126,7 +126,7 @@ public:
 	std::intmax_t
 	floor()
 	const {
-		const std::intmax_t r = numerator % denominator;
+		const auto r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
@@ -136,7 +136,7 @@ public:
 	std::intmax_t
 	floor_eps()
 	const {
-		const std::intmax_t r = numerator % denominator;
+		const auto r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator - 1 );
 		} else {
@@ -146,7 +146,7 @@ public:
 	std::intmax_t
 	ceil()
 	const {
-		const std::intmax_t r = numerator % denominator;
+		const auto r = numerator % denominator;
 		if ( r <= 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -156,7 +156,7 @@ public:
 	std::intmax_t
 	ceil_eps()
 	const {
-		const std::intmax_t r = numerator % denominator;
+		const auto r = numerator % denominator;
 		if ( r < 0 ) {
 			return ( (numerator-r)/denominator );
 		} else {
@@ -211,7 +211,7 @@ public:
 	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true)
 	{
 		threads = std::make_unique<Thread[]>(size);
-		for (std::size_t i=0; i<size; i++) {
+		for (auto i=0uz; i<size; i++) {
 			threads[i].thread = std::thread([this, i](){listen(&threads[i]);});
 		}
 	}
@@ -219,7 +219,7 @@ public:
 	{
 		{
 			alive = false;
-			for (std::size_t i=0; i<size; i++) {
+			for (auto i=0uz; i<size; i++) {
 				{
 					auto lk=std::lock_guard(threads[i].mx);
 					threads[i].ready = true;
@@ -227,7 +227,7 @@ public:
 				threads[i].cv.notify_one();
 			}
 		}
-		for (std::size_t i=0; i<size; i++) {
+		for (auto i=0uz; i<size; i++) {
 			threads[i].thread.join();
 		}
 		func = nullptr;
@@ -237,14 +237,14 @@ public:
 	{
 		func = f; // ジョブ関数
 		current_i = 0; max_i = n;
-		for (std::size_t i=0; i<size; i++) { // ワーカー起動
+		for (auto i=0uz; i<size; i++) { // ワーカー起動
 			{
 				auto lk=std::lock_guard(threads[i].mx);
 				threads[i].ready = true;
 			}
 			threads[i].cv.notify_one();
 		}
-		for (std::size_t i=0; i<size; i++) { // 全ワーカーの終了を待つ
+		for (auto i=0uz; i<size; i++) { // 全ワーカーの終了を待つ
 			auto lk=std::unique_lock(threads[i].mx);
 			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
 		}
