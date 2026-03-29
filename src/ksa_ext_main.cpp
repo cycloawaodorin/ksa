@@ -232,10 +232,16 @@ public:
 			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
 		}
 	}
-	std::size_t
-	get_size()
+	void
+	parallel_do_batched(std::function<void(int)> f, int n)
 	{
-		return size;
+		const int m = static_cast<int>(size);
+		parallel_do( [&f, n, m](int i){
+			const int s=(i*n)/m, e=((i+1)*n)/m;
+			for (auto j=s; j<e; j++) {
+				f(j);
+			}
+		}, n );
 	}
 };
 static std::unique_ptr<ThreadPool> TP;
@@ -259,7 +265,7 @@ uc_cast(const float &x)
 	}
 }
 static unsigned char
-uc_cast(std::uint64_t num, std::uint64_t den)
+uc_cast(std::uint32_t num, std::uint32_t den)
 {
 	if ( num == 0u ) {
 		return static_cast<unsigned char>(0u);

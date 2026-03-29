@@ -20,17 +20,13 @@ public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	int w, h, type;
 	void
-	invoke_calc_grad(int i, const int &n_th)
+	invoke_calc_grad(int y)
 	{
-		const auto y_start = ( i*h )/n_th;
-		const auto y_end = ( (i+1)*h )/n_th;
-		for (auto y=y_start; y<y_end; y++) {
-			auto p = &data[y*w];
-			auto fy = static_cast<float>(y);
-			for (auto x=0; x<w; x++) {
-				p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
-				p++;
-			}
+		auto p = &data[y*w];
+		auto fy = static_cast<float>(y);
+		for (auto x=0; x<w; x++) {
+			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
+			p++;
 		}
 	}
 };
@@ -58,8 +54,7 @@ ksa_trsgrad(lua_State *L)
 	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	int n = static_cast<int>(TP->get_size());
-	TP->parallel_do([&it, n](int j){ it.invoke_calc_grad(j, n); }, n);
+	TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
 	
 	return 0;
 }
@@ -228,10 +223,17 @@ private:
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
+		std::unique_ptr<RANGE[]> ranges;
 		void
-		calc_range(const int &dest, RANGE *range)
-		const {
-			range->center = reversed_scale*dest+correction;
+		alloc_range()
+		{
+			ranges = std::make_unique<RANGE[]>(static_cast<std::size_t>(dest_size));
+		}
+		void
+		calc_range(int xy)
+		{
+			auto range = &ranges[static_cast<std::size_t>(xy)];
+			range->center = reversed_scale*xy + correction;
 			if ( extend ) {
 				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
 				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
@@ -240,12 +242,12 @@ private:
 				range->end = static_cast<int>( ( range->center + reversed_scale*3 ).floor_eps() );
 			}
 			range->skipped = 0;
-			if ( range->start < clip_start ) {
-				range->skipped = clip_start - range->start;
-				range->start = clip_start;
+			if ( range->start < 0 ) {
+				range->skipped = -(range->start);
+				range->start = 0;
 			}
-			if ( src_size - clip_end - 1 < range->end ) {
-				range->end = src_size - clip_end - 1;
+			if ( src_size - 1 < range->end ) {
+				range->end = src_size - 1;
 			}
 		}
 		void
@@ -278,31 +280,30 @@ private:
 		}
 	};
 	void
-	interpolate(const int &dx, const int &dy)
+	interpolate(int dx, int dy)
 	{
-		XY::RANGE xrange, yrange;
-		x.calc_range(dx, &xrange);
-		y.calc_range(dy, &yrange);
+		const auto xrange = &(x.ranges[static_cast<std::size_t>(dx)]);
+		const auto yrange = &(y.ranges[static_cast<std::size_t>(dy)]);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		const auto *wxs = x.weights[ dx % (x.var) ].get();
-		const auto *wys = y.weights[ dy % (y.var) ].get();
-		for ( auto sy=(yrange.start); sy<=(yrange.end); sy++ ) {
-			const auto wy = wys[sy-(yrange.start)+(yrange.skipped)];
-			for ( auto sx=(xrange.start); sx<=(xrange.end); sx++ ) {
-				const auto wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
+		const auto wxs = x.weights[ static_cast<std::size_t>( dx % (x.var) ) ].get();
+		const auto wys = y.weights[ static_cast<std::size_t>( dy % (y.var) ) ].get();
+		for ( auto sy=(yrange->start); sy<=(yrange->end); sy++ ) {
+			const auto wy = wys[sy-(yrange->start)+(yrange->skipped)];
+			for ( auto sx=(xrange->start); sx<=(xrange->end); sx++ ) {
+				const auto wxy = wy*wxs[sx-(xrange->start)+(xrange->skipped)];
 				const auto s_px = &src[sy*(x.src_size)+sx];
 				const auto wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
 				r += s_px->r*wxya;
+				g += s_px->g*wxya;
+				b += s_px->b*wxya;
 				a += wxya;
 				w += wxy;
 			}
 		}
 		auto d_px = &dest[dy*(x.dest_size)+dx];
-		d_px->b = uc_cast(b/a);
-		d_px->g = uc_cast(g/a);
 		d_px->r = uc_cast(r/a);
+		d_px->g = uc_cast(g/a);
+		d_px->b = uc_cast(b/a);
 		d_px->a = uc_cast(a/w);
 	}
 public:
@@ -316,6 +317,15 @@ public:
 			x.set_weights(i);
 		} else {
 			y.set_weights(i-x.var);
+		}
+	}
+	void
+	invoke_calc_range(int i)
+	{
+		if ( i < x.dest_size ) {
+			x.calc_range(i);
+		} else {
+			y.calc_range(i-x.dest_size);
 		}
 	}
 	void
@@ -337,7 +347,9 @@ ksa_clip_resize(lua_State *L)
 	it.y.src_size = lua_tointeger(L, ++i);
 	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.x.dest_size = lua_tointeger(L, ++i);
+	it.x.alloc_range();
 	it.y.dest_size = lua_tointeger(L, ++i);
+	it.y.alloc_range();
 	it.y.clip_start = lua_tointeger(L, ++i);
 	it.y.clip_end = lua_tointeger(L, ++i);
 	it.x.clip_start = lua_tointeger(L, ++i);
@@ -347,6 +359,7 @@ ksa_clip_resize(lua_State *L)
 	it.x.calc_params();
 	it.y.calc_params();
 	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
+	TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
@@ -363,13 +376,13 @@ private:
 		struct RANGE {
 			int start, end;
 		};
-		constexpr void
+		void
 		calc_range(const int &dest, RANGE *range)
 		const {
 			range->start = dest*dc;
 			range->end = (dest+1)*dc;
 		}
-		constexpr void
+		void
 		calc_params()
 		{
 			const int ss = src_size-clip_start-clip_end;
@@ -384,12 +397,12 @@ private:
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		std::uint64_t b=0, g=0, r=0, a=0;
+		std::uint32_t b=0u, g=0u, r=0u, a=0u;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const auto s_px = &src[xs+(sx/x.sc)];
-				const auto wa = static_cast<std::uint64_t>(s_px->a);
+				const auto wa = static_cast<std::uint32_t>(s_px->a);
 				b += s_px->b*wa;
 				g += s_px->g*wa;
 				r += s_px->r*wa;
@@ -406,16 +419,12 @@ public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
 	XY x, y;
-	int w;
+	std::uint32_t w;
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int dy)
 	{
-		const int y_start = ( i*(y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(x.dest_size); dx++) {
-				interpolate(dx, dy);
-			}
+		for (int dx=0; dx<(x.dest_size); dx++) {
+			interpolate(dx, dy);
 		}
 	}
 };
@@ -439,11 +448,10 @@ ksa_clip_resize_ave(lua_State *L)
 	// パラメータ計算
 	it.x.calc_params();
 	it.y.calc_params();
-	it.w = static_cast<std::uint64_t>( (it.x.dc)*(it.y.dc) );
+	it.w = static_cast<std::uint32_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
-	int n = static_cast<int>(TP->get_size());
-	TP->parallel_do([&it, n](int j){it.invoke_interpolate(j, n);}, n);
+	TP->parallel_do_batched([&it](int j){it.invoke_interpolate(j);}, it.y.dest_size);
 	
 	return 0;
 }
@@ -478,7 +486,7 @@ ksa_deinterlace_nn(lua_State *L)
 	it.top = !( lua_tointeger(L, ++i) );
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.doubling(j); }, it.h/2);
+	TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
 	
 	return 0;
 }
@@ -610,7 +618,7 @@ ksa_deinterlace_temporal(lua_State *L)
 	it.top = !( lua_tointeger(L, ++i) );
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
 	
 	return 0;
 }
@@ -751,7 +759,7 @@ ksa_deinterlace_ghost(lua_State *L)
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
 	TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
-	TP->parallel_do([&it](int j){ it.invoke_mix(j); }, it.w);
+	TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
 	
 	return 0;
 }
