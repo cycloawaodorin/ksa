@@ -2,7 +2,7 @@
 class Trsgrad {
 private:
 	float
-	calc_grad(const float &x, const float &y)
+	calc_grad(float x, float y)
 	const {
 		float d = sx * ( x - cx ) + sy * ( y - cy );
 		if ( d < -0.5f ) {
@@ -63,7 +63,7 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 class Edgegrad {
 private:
 	float
-	mag(const float &z)
+	mag(float z)
 	const {
 		if ( type == 0 ) {
 			return z;
@@ -75,7 +75,7 @@ private:
 		}
 	}
 	float
-	cw(const float &cx, const float &cy)
+	cw(float cx, float cy)
 	const {
 		if ( round ) {
 			return std::max(1.0f-std::hypot(1.0f-cx, 1.0f-cy), 0.0f);
@@ -84,7 +84,7 @@ private:
 		}
 	}
 	void
-	set_alpha(const int &x, const int &y, const float &z)
+	set_alpha(int x, int y, float z)
 	{
 		auto tag = &data[y*w+x];
 		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
@@ -92,24 +92,24 @@ private:
 	void
 	corner()
 	{
-		for (int y=0; y<t; y++) {
+		for (auto y=0; y<t; y++) {
 			const float cy = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
-			for (int x=0; x<l; x++) {
+			for (auto x=0; x<l; x++) {
 				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
 				set_alpha(x, y, cw(cx, cy));
 			}
-			for (int x=w-r; x<w; x++) {
+			for (auto x=w-r; x<w; x++) {
 				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
 				set_alpha(x, y, cw(cx, cy));
 			}
 		}
-		for (int y=h-b; y<h; y++) {
+		for (auto y=h-b; y<h; y++) {
 			const float cy = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
-			for (int x=0; x<l; x++) {
+			for (auto x=0; x<l; x++) {
 				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
 				set_alpha(x, y, cw(cx, cy));
 			}
-			for (int x=w-r; x<w; x++) {
+			for (auto x=w-r; x<w; x++) {
 				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
 				set_alpha(x, y, cw(cx, cy));
 			}
@@ -118,9 +118,9 @@ private:
 	void
 	top()
 	{
-		for (int y=0; y<t; y++) {
+		for (auto y=0; y<t; y++) {
 			const float z = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
-			for (int x=l; x<w-r; x++) {
+			for (auto x=l; x<w-r; x++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -128,9 +128,9 @@ private:
 	void
 	bottom()
 	{
-		for (int y=h-b; y<h; y++) {
+		for (auto y=h-b; y<h; y++) {
 			const float z = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
-			for (int x=l; x<w-r; x++) {
+			for (auto x=l; x<w-r; x++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -138,9 +138,9 @@ private:
 	void
 	left()
 	{
-		for (int x=0; x<l; x++) {
+		for (auto x=0; x<l; x++) {
 			const float z = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
-			for (int y=t; y<h-b; y++) {
+			for (auto y=t; y<h-b; y++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -148,9 +148,9 @@ private:
 	void
 	right()
 	{
-		for (int x=w-r; x<w; x++) {
+		for (auto x=w-r; x<w; x++) {
 			const float z = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
-			for (int y=t; y<h-b; y++) {
+			for (auto y=t; y<h-b; y++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -199,8 +199,12 @@ class ClipResize {
 private:
 	class XY {
 	private:
+		struct RANGE {
+			int start, end, skipped;
+			Rational center;
+		};
 		static float
-		sinc(const float &x)
+		sinc(float x)
 		{
 			if ( x == 0.0f ) {
 				return 1.0f;
@@ -209,15 +213,11 @@ private:
 			}
 		}
 		static float
-		lanczos3(const float &x)
+		lanczos3(float x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
 	public:
-		struct RANGE {
-			int start, end, skipped;
-			Rational center;
-		};
 		int src_size, dest_size, clip_start, clip_end, var;
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
@@ -260,7 +260,7 @@ private:
 			weights = std::make_unique<std::unique_ptr<float[]>[]>(static_cast<std::size_t>(var));
 		}
 		void
-		set_weights(const int i)
+		set_weights(int i)
 		{
 			const Rational c = reversed_scale*i + correction;
 			std::intmax_t s, e;
@@ -375,10 +375,10 @@ private:
 			int start, end;
 		};
 		void
-		calc_range(const int &_dest, RANGE *range)
+		calc_range(int xy, RANGE *range)
 		const {
-			range->start = _dest*dc;
-			range->end = (_dest+1)*dc;
+			range->start = xy*dc;
+			range->end = (xy+1)*dc;
 		}
 		void
 		calc_params()
@@ -421,7 +421,7 @@ public:
 	void
 	invoke_interpolate(int dy)
 	{
-		for (int dx=0; dx<(x.dest_size); dx++) {
+		for (auto dx=0; dx<(x.dest_size); dx++) {
 			interpolate(dx, dy);
 		}
 	}
@@ -490,7 +490,7 @@ ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 class DiSpatial {
 private:
 	void
-	interpolate(const int &x, const int &y)
+	interpolate(int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -532,11 +532,11 @@ public:
 	invoke_interpolate(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		}
@@ -562,16 +562,16 @@ ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 class DiTemporal {
 private:
 	void
-	interpolate(const int &x, const int &y)
+	interpolate(int x, int y)
 	{
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == 255 && px_f->a == 255 ) {
+		if ( px_p->a == 255u && px_f->a == 255u ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
-			px_d->a = static_cast<unsigned char>(255);
+			px_d->a = static_cast<unsigned char>(255u);
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -590,11 +590,11 @@ public:
 	invoke_interpolate(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		}
@@ -621,7 +621,7 @@ ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 class DiGhost {
 private:
 	void
-	interpolate_spatial(PIXEL_RGBA *d, const bool &t, const int &x, const int &y)
+	interpolate_spatial(PIXEL_RGBA *d, bool t, int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -652,12 +652,12 @@ private:
 		d_px->a = uc_cast(a/ww);
 	}
 	void
-	interpolate_temporal(const int &x, const int &y)
+	interpolate_temporal(int x, int y)
 	{
 		const int idx = y*w+x;
 		auto px_d = &past_temp[idx];
 		const auto px_f = &future[idx];
-		if ( px_d->a == 255 && px_f->a == 255 ) {
+		if ( px_d->a == 255u && px_f->a == 255u ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_f->b))>>1 );
@@ -671,22 +671,22 @@ private:
 		}
 	}
 	void
-	interpolate0(const int &x, const int &y)
+	interpolate0(int x, int y)
 	{
 		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
 	void
-	interpolate1(const int &x, const int &y)
+	interpolate1(int x, int y)
 	{
 		interpolate_spatial(past_temp, !top, x, y);
 	}
 	void
-	mix(const int &x, const int &y)
+	mix(int x, int y)
 	{
 		const int idx = y*w+x;
 		auto px_d=&dest[idx], px_t=&past_temp[idx];
-		if ( px_d->a == 255 && px_t->a == 255 ) {
+		if ( px_d->a == 255u && px_t->a == 255u ) {
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
