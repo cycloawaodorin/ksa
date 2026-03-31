@@ -575,7 +575,7 @@ private:
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
-			px_d->a = static_cast<unsigned char>(255);
+			px_d->a = static_cast<unsigned char>(255u);
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -754,7 +754,7 @@ ksa_deinterlace_ghost(lua_State *L)
 	it.future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.w = lua_tointeger(L, ++i);
 	it.h = lua_tointeger(L, ++i);
-	it.top = !( lua_tointeger(L, ++i) );
+	it.top = ( lua_tointeger(L, ++i) != 0 );
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
