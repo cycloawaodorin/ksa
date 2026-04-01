@@ -261,7 +261,7 @@ uc_cast(const float &x)
 	} else if ( 255.0f < x ) {
 		return static_cast<unsigned char>(255);
 	} else {
-		return static_cast<unsigned char>(std::round(x));
+		return static_cast<unsigned char>(std::nearbyint(x));
 	}
 }
 static unsigned char
@@ -275,6 +275,13 @@ uc_cast(std::uint32_t num, std::uint32_t den)
 		auto r = num % den;
 		if ( r*2u < den ) {
 			return static_cast<unsigned char>((num-r)/den);
+		} else if ( r*2u == den ) {
+			r = (num-r)/den;
+			if ( r%2u == 0u ) {
+				return static_cast<unsigned char>(r);
+			} else {
+				return static_cast<unsigned char>(r+1);
+			}
 		} else {
 			return static_cast<unsigned char>((num-r)/den+1);
 		}

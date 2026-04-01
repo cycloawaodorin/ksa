@@ -395,12 +395,12 @@ private:
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		std::uint64_t b=0u, g=0u, r=0u, a=0u;
+		std::int64_t b=0, g=0, r=0, a=0;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const auto s_px = &src[xs+(sx/x.sc)];
-				const auto wa=static_cast<std::uint64_t>(s_px->a);
+				const auto wa=static_cast<std::int64_t>(s_px->a);
 				r += s_px->r*wa;
 				g += s_px->g*wa;
 				b += s_px->b*wa;
@@ -417,7 +417,7 @@ public:
 	const PIXEL_RGBA *src;
 	PIXEL_RGBA *dest;
 	XY x, y;
-	std::uint64_t w;
+	std::int64_t w;
 	void
 	invoke_interpolate(int dy)
 	{
@@ -447,7 +447,7 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 	// パラメータ計算
 	it.x.calc_params();
 	it.y.calc_params();
-	it.w = static_cast<std::uint64_t>( (it.x.dc)*(it.y.dc) );
+	it.w = static_cast<std::int64_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
 	TP->parallel_do_batched([&it](int i){it.invoke_interpolate(i);}, it.y.dest_size);
