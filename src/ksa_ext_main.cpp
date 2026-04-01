@@ -29,12 +29,8 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(const std::intmax_t &i) : numerator(i), denominator(1)
-	{
-	}
-	Rational() : numerator(0), denominator(1)
-	{
-	}
+	Rational(const std::intmax_t &i) : numerator(i), denominator(1) {}
+	Rational() : numerator(0), denominator(1) {}
 	std::intmax_t
 	get_numerator()
 	const {
@@ -254,7 +250,7 @@ struct PIXEL_BGRA {
 	alignas(1) unsigned char a;
 };
 static unsigned char
-uc_cast(const float &x)
+uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
 		return static_cast<unsigned char>(0);
@@ -280,10 +276,10 @@ uc_cast(std::uint32_t num, std::uint32_t den)
 			if ( r%2u == 0u ) {
 				return static_cast<unsigned char>(r);
 			} else {
-				return static_cast<unsigned char>(r+1);
+				return static_cast<unsigned char>(r+1u);
 			}
 		} else {
-			return static_cast<unsigned char>((num-r)/den+1);
+			return static_cast<unsigned char>((num-r)/den+1u);
 		}
 	}
 }

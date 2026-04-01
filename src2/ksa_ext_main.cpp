@@ -46,12 +46,8 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(const std::intmax_t &i) : numerator(i), denominator(1)
-	{
-	}
-	Rational() : numerator(0), denominator(1)
-	{
-	}
+	Rational(const std::intmax_t &i) : numerator(i), denominator(1) {}
+	Rational() : numerator(0), denominator(1) {}
 	std::intmax_t
 	get_numerator()
 	const {
@@ -269,12 +265,12 @@ struct PIXEL_RGBA {
 };
 
 static unsigned char
-uc_cast(const float &x)
+uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
-		return static_cast<unsigned char>(0);
+		return static_cast<unsigned char>(0u);
 	} else if ( 255.0f < x ) {
-		return static_cast<unsigned char>(255);
+		return static_cast<unsigned char>(255u);
 	} else {
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
@@ -283,9 +279,9 @@ static unsigned char
 uc_cast(std::int64_t num, std::int64_t den)
 {
 	if ( num <= 0 ) {
-		return static_cast<unsigned char>(0);
+		return static_cast<unsigned char>(0u);
 	} else if ( 255*den <= num ) {
-		return static_cast<unsigned char>(255);
+		return static_cast<unsigned char>(255u);
 	} else {
 		auto r = num % den;
 		if ( r*2 < den ) {
