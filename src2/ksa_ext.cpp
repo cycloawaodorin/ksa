@@ -241,12 +241,12 @@ private:
 				range->end = static_cast<int>( ( range->center + reversed_scale*3ll ).floor_eps() );
 			}
 			range->skipped = 0;
-			if ( range->start < 0 ) {
-				range->skipped = -(range->start);
-				range->start = 0;
+			if ( range->start < clip_start ) {
+				range->skipped = clip_start - (range->start);
+				range->start = clip_start;
 			}
-			if ( src_size - 1 < range->end ) {
-				range->end = src_size - 1;
+			if ( src_size - clip_end - 1 < range->end ) {
+				range->end = src_size - clip_end - 1;
 			}
 		}
 		void
