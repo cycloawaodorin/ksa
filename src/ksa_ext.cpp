@@ -451,7 +451,7 @@ ksa_clip_resize_ave(lua_State *L)
 	it.w = static_cast<std::uint32_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
-	TP->parallel_do_batched([&it](int j){it.invoke_interpolate(j);}, it.y.dest_size);
+	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 	
 	return 0;
 }

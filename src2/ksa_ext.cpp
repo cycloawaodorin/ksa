@@ -359,7 +359,7 @@ ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 	it.x.calc_params();
 	it.y.calc_params();
 	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
-	TP->parallel_do_batched([&it](int i){ it.invoke_calc_range(i); }, it.x.dest_size + it.y.dest_size);
+	TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
@@ -450,7 +450,7 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 	it.w = static_cast<std::int64_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
-	TP->parallel_do_batched([&it](int i){it.invoke_interpolate(i);}, it.y.dest_size);
+	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 }
 
 class DiNN {
