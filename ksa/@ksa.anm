@@ -2,7 +2,7 @@
 --track0:中心X,-10000,10000,0,1
 --track1:中心Y,-10000,10000,0,1
 --track2:角度,-360,360,0
---track3:幅,0,1000,100,1
+--track3:幅,1,1000,100,1
 --dialog:開始透明度,local s_tp=0;終了透明度,local e_tp=100;タイプ,local type=0;
 
 local ksa = require("ksa")
@@ -95,7 +95,7 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		if ( obj.check0 ) then
 			dh = ksa.round( dh*(sh-ct-cb)/(sh-ct-cb+ctb*2) )
 		else
-			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track1*1e-4 )
+			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track2*1e-4 )
 		end
 	end
 	if ( dw ~= _dw or dh ~= _dh ) then

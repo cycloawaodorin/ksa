@@ -1,9 +1,9 @@
 // 透明グラデーション
 class Trsgrad {
 	float
-	calc_grad(const float &x, const float &y)
+	calc_grad(float x, float y)
 	const {
-		float d = sx * ( x - cx ) + sy * ( y - cy );
+		float d = std::fma(sx, x-cx, sy*(y-cy));
 		if ( d < -0.5f ) {
 			return a0;
 		} else if ( 0.5f < d ) {
@@ -12,7 +12,7 @@ class Trsgrad {
 			if ( type == 1 ) {
 				d = 0.5f*std::sin(PI*d);
 			}
-			return (a_int+a_cef*d);
+			return std::fma(a_cef, d, a_int);
 		}
 	}
 public:
@@ -20,17 +20,13 @@ public:
 	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
 	int w, h, type;
 	void
-	invoke_calc_grad(int i, const int &n_th)
+	invoke_calc_grad(int y)
 	{
-		const auto y_start = ( i*h )/n_th;
-		const auto y_end = ( (i+1)*h )/n_th;
-		for (auto y=y_start; y<y_end; y++) {
-			auto p = &data[y*w];
-			auto fy = static_cast<float>(y);
-			for (auto x=0; x<w; x++) {
-				p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
-				p++;
-			}
+		auto p = &data[y*w];
+		auto fy = static_cast<float>(y);
+		for (auto x=0; x<w; x++) {
+			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
+			p++;
 		}
 	}
 };
@@ -58,8 +54,7 @@ ksa_trsgrad(lua_State *L)
 	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	int n = static_cast<int>(TP->get_size());
-	TP->parallel_do([&it, n](int j){ it.invoke_calc_grad(j, n); }, n);
+	TP->parallel_do([&it](int j){ it.invoke_calc_grad(j); }, it.h);
 	
 	return 0;
 }
@@ -68,7 +63,7 @@ ksa_trsgrad(lua_State *L)
 class Edgegrad {
 private:
 	float
-	mag(const float &z)
+	mag(float z)
 	const {
 		if ( type == 0 ) {
 			return z;
@@ -80,7 +75,7 @@ private:
 		}
 	}
 	float
-	cw(const float &cx, const float &cy)
+	cw(float cx, float cy)
 	const {
 		if ( round ) {
 			return std::max(1.0f-std::hypot(1.0f-cx, 1.0f-cy), 0.0f);
@@ -89,7 +84,7 @@ private:
 		}
 	}
 	void
-	set_alpha(const int &x, const int &y, const float &z)
+	set_alpha(int x, int y, float z)
 	{
 		auto tag = &data[y*w+x];
 		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
@@ -97,24 +92,24 @@ private:
 	void
 	corner()
 	{
-		for (int y=0; y<t; y++) {
+		for (auto y=0; y<t; y++) {
 			const float cy = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
-			for (int x=0; x<l; x++) {
+			for (auto x=0; x<l; x++) {
 				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
 				set_alpha(x, y, cw(cx, cy));
 			}
-			for (int x=w-r; x<w; x++) {
+			for (auto x=w-r; x<w; x++) {
 				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
 				set_alpha(x, y, cw(cx, cy));
 			}
 		}
-		for (int y=h-b; y<h; y++) {
+		for (auto y=h-b; y<h; y++) {
 			const float cy = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
-			for (int x=0; x<l; x++) {
+			for (auto x=0; x<l; x++) {
 				const float cx = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
 				set_alpha(x, y, cw(cx, cy));
 			}
-			for (int x=w-r; x<w; x++) {
+			for (auto x=w-r; x<w; x++) {
 				const float cx = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
 				set_alpha(x, y, cw(cx, cy));
 			}
@@ -123,9 +118,9 @@ private:
 	void
 	top()
 	{
-		for (int y=0; y<t; y++) {
+		for (auto y=0; y<t; y++) {
 			const float z = (static_cast<float>(y)+0.5f)/static_cast<float>(t);
-			for (int x=l; x<w-r; x++) {
+			for (auto x=l; x<w-r; x++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -133,9 +128,9 @@ private:
 	void
 	bottom()
 	{
-		for (int y=h-b; y<h; y++) {
+		for (auto y=h-b; y<h; y++) {
 			const float z = (static_cast<float>(h-y)-0.5f)/static_cast<float>(b);
-			for (int x=l; x<w-r; x++) {
+			for (auto x=l; x<w-r; x++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -143,9 +138,9 @@ private:
 	void
 	left()
 	{
-		for (int x=0; x<l; x++) {
+		for (auto x=0; x<l; x++) {
 			const float z = (static_cast<float>(x)+0.5f)/static_cast<float>(l);
-			for (int y=t; y<h-b; y++) {
+			for (auto y=t; y<h-b; y++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -153,9 +148,9 @@ private:
 	void
 	right()
 	{
-		for (int x=w-r; x<w; x++) {
+		for (auto x=w-r; x<w; x++) {
 			const float z = (static_cast<float>(w-x)-0.5f)/static_cast<float>(r);
-			for (int y=t; y<h-b; y++) {
+			for (auto y=t; y<h-b; y++) {
 				set_alpha(x, y, z);
 			}
 		}
@@ -192,7 +187,7 @@ ksa_edgegrad(lua_State *L)
 	it.b = lua_tointeger(L, ++i);
 	it.l = lua_tointeger(L, ++i);
 	it.r = lua_tointeger(L, ++i);
-	it.round = (lua_tointeger(L, ++i)!=0);
+	it.round = ( lua_tointeger(L, ++i) != 0 );
 	it.type = lua_tointeger(L, ++i);
 	
 	TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
@@ -205,8 +200,12 @@ class ClipResize {
 private:
 	class XY {
 	private:
+		struct RANGE {
+			int start, end, skipped;
+			Rational center;
+		};
 		static float
-		sinc(const float &x)
+		sinc(float x)
 		{
 			if ( x == 0.0f ) {
 				return 1.0f;
@@ -215,33 +214,36 @@ private:
 			}
 		}
 		static float
-		lanczos3(const float &x)
+		lanczos3(float x)
 		{
 			return sinc(PI*x)*sinc((PI/3.0f)*x);
 		}
 	public:
-		struct RANGE {
-			int start, end, skipped;
-			Rational center;
-		};
 		int src_size, dest_size, clip_start, clip_end, var;
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
+		std::unique_ptr<RANGE[]> ranges;
 		void
-		calc_range(const int &dest, RANGE *range)
-		const {
-			range->center = reversed_scale*dest+correction;
+		alloc_range()
+		{
+			ranges = std::make_unique<RANGE[]>(static_cast<std::size_t>(dest_size));
+		}
+		void
+		calc_range(int xy)
+		{
+			auto range = &ranges[static_cast<std::size_t>(xy)];
+			range->center = reversed_scale*xy + correction;
 			if ( extend ) {
 				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
 				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
 			} else {
-				range->start = static_cast<int>( ( range->center - reversed_scale*3 ).ceil_eps() );
-				range->end = static_cast<int>( ( range->center + reversed_scale*3 ).floor_eps() );
+				range->start = static_cast<int>( ( range->center - reversed_scale*3ll ).ceil_eps() );
+				range->end = static_cast<int>( ( range->center + reversed_scale*3ll ).floor_eps() );
 			}
 			range->skipped = 0;
 			if ( range->start < clip_start ) {
-				range->skipped = clip_start - range->start;
+				range->skipped = clip_start - (range->start);
 				range->start = clip_start;
 			}
 			if ( src_size - clip_end - 1 < range->end ) {
@@ -253,48 +255,47 @@ private:
 		{
 			reversed_scale = Rational(src_size-clip_start-clip_end, dest_size);
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
-			correction = (reversed_scale-1)/2 + clip_start;
-			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
+			correction = (reversed_scale-1ll)/2ll + clip_start;
+			weight_scale = extend ? Rational(1ll) : reversed_scale.reciprocal();
 			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
 			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
 		}
 		void
-		set_weights(const int i)
+		set_weights(int i)
 		{
 			const Rational c = reversed_scale*i + correction;
 			std::intmax_t s, e;
 			if ( extend ) {
-				s = c.ceil_eps() - 3;
-				e = c.floor_eps() + 3;
+				s = c.ceil_eps() - 3ll;
+				e = c.floor_eps() + 3ll;
 			} else {
-				s = ( c - reversed_scale*3 ).ceil_eps();
-				e = ( c + reversed_scale*3 ).floor_eps();
+				s = ( c - reversed_scale*3ll ).ceil_eps();
+				e = ( c + reversed_scale*3ll ).floor_eps();
 			}
 			auto j = static_cast<std::size_t>(i);
-			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1));
+			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1ll));
 			for ( auto sxy = s; sxy <= e; sxy++ ) {
 				weights[j][static_cast<std::size_t>(sxy-s)] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 			}
 		}
 	};
 	void
-	interpolate(const int &dx, const int &dy)
+	interpolate(int dx, int dy)
 	{
-		XY::RANGE xrange, yrange;
-		x.calc_range(dx, &xrange);
-		y.calc_range(dy, &yrange);
+		const auto xrange = &(x.ranges[static_cast<std::size_t>(dx)]);
+		const auto yrange = &(y.ranges[static_cast<std::size_t>(dy)]);
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
-		const auto *wxs = x.weights[ dx % (x.var) ].get();
-		const auto *wys = y.weights[ dy % (y.var) ].get();
-		for ( auto sy=(yrange.start); sy<=(yrange.end); sy++ ) {
-			const auto wy = wys[sy-(yrange.start)+(yrange.skipped)];
-			for ( auto sx=(xrange.start); sx<=(xrange.end); sx++ ) {
-				const auto wxy = wy*wxs[sx-(xrange.start)+(xrange.skipped)];
+		const auto wxs = x.weights[ static_cast<std::size_t>( dx % (x.var) ) ].get();
+		const auto wys = y.weights[ static_cast<std::size_t>( dy % (y.var) ) ].get();
+		for ( auto sy=(yrange->start); sy<=(yrange->end); sy++ ) {
+			const auto wy = wys[sy-(yrange->start)+(yrange->skipped)];
+			for ( auto sx=(xrange->start); sx<=(xrange->end); sx++ ) {
+				const auto wxy = wy*wxs[sx-(xrange->start)+(xrange->skipped)];
 				const auto s_px = &src[sy*(x.src_size)+sx];
 				const auto wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
-				r += s_px->r*wxya;
+				b = std::fmaf(s_px->b, wxya, b);
+				g = std::fmaf(s_px->g, wxya, g);
+				r = std::fmaf(s_px->r, wxya, r);
 				a += wxya;
 				w += wxy;
 			}
@@ -319,6 +320,15 @@ public:
 		}
 	}
 	void
+	invoke_calc_range(int i)
+	{
+		if ( i < x.dest_size ) {
+			x.calc_range(i);
+		} else {
+			y.calc_range(i-x.dest_size);
+		}
+	}
+	void
 	invoke_interpolate(int dy)
 	{
 		for (int dx=0; dx<(x.dest_size); dx++) {
@@ -337,7 +347,9 @@ ksa_clip_resize(lua_State *L)
 	it.y.src_size = lua_tointeger(L, ++i);
 	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.x.dest_size = lua_tointeger(L, ++i);
+	it.x.alloc_range();
 	it.y.dest_size = lua_tointeger(L, ++i);
+	it.y.alloc_range();
 	it.y.clip_start = lua_tointeger(L, ++i);
 	it.y.clip_end = lua_tointeger(L, ++i);
 	it.x.clip_start = lua_tointeger(L, ++i);
@@ -347,6 +359,7 @@ ksa_clip_resize(lua_State *L)
 	it.x.calc_params();
 	it.y.calc_params();
 	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
+	TP->parallel_do([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
@@ -363,13 +376,13 @@ private:
 		struct RANGE {
 			int start, end;
 		};
-		constexpr void
-		calc_range(const int &dest, RANGE *range)
+		void
+		calc_range(int xy, RANGE *range)
 		const {
-			range->start = dest*dc;
-			range->end = (dest+1)*dc;
+			range->start = xy*dc;
+			range->end = (xy+1)*dc;
 		}
-		constexpr void
+		void
 		calc_params()
 		{
 			const int ss = src_size-clip_start-clip_end;
@@ -379,17 +392,17 @@ private:
 		}
 	};
 	void
-	interpolate(const int &dx, const int &dy)
+	interpolate(int dx, int dy)
 	{
 		XY::RANGE xrange, yrange;
 		x.calc_range(dx, &xrange);
 		y.calc_range(dy, &yrange);
-		std::uint64_t b=0, g=0, r=0, a=0;
+		std::uint32_t b=0u, g=0u, r=0u, a=0u;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
 			for ( auto sx=(xrange.start); sx<(xrange.end); sx++ ) {
 				const auto s_px = &src[xs+(sx/x.sc)];
-				const auto wa = static_cast<std::uint64_t>(s_px->a);
+				const auto wa = static_cast<std::uint32_t>(s_px->a);
 				b += s_px->b*wa;
 				g += s_px->g*wa;
 				r += s_px->r*wa;
@@ -406,16 +419,12 @@ public:
 	const PIXEL_BGRA *src;
 	PIXEL_BGRA *dest;
 	XY x, y;
-	int w;
+	std::uint32_t w;
 	void
-	invoke_interpolate(int i, const int &n_th)
+	invoke_interpolate(int dy)
 	{
-		const int y_start = ( i*(y.dest_size) )/n_th;
-		const int y_end = ( (i+1)*(y.dest_size) )/n_th;
-		for (int dy=y_start; dy<y_end; dy++) {
-			for (int dx=0; dx<(x.dest_size); dx++) {
-				interpolate(dx, dy);
-			}
+		for (auto dx=0; dx<(x.dest_size); dx++) {
+			interpolate(dx, dy);
 		}
 	}
 };
@@ -439,11 +448,10 @@ ksa_clip_resize_ave(lua_State *L)
 	// パラメータ計算
 	it.x.calc_params();
 	it.y.calc_params();
-	it.w = static_cast<std::uint64_t>( (it.x.dc)*(it.y.dc) );
+	it.w = static_cast<std::uint32_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
-	int n = static_cast<int>(TP->get_size());
-	TP->parallel_do([&it, n](int j){it.invoke_interpolate(j, n);}, n);
+	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 	
 	return 0;
 }
@@ -486,7 +494,7 @@ ksa_deinterlace_nn(lua_State *L)
 class DiSpatial {
 private:
 	void
-	interpolate(const int &x, const int &y)
+	interpolate(int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -504,9 +512,9 @@ private:
 			const auto wy = WEIGHTS[(sy-start)>>1];
 			const auto s_px = &dest[sy*w+x];
 			const auto wya = wy*s_px->a;
-			b += s_px->b*wya;
-			g += s_px->g*wya;
-			r += s_px->r*wya;
+			b = std::fmaf(s_px->b, wya, b);
+			g = std::fmaf(s_px->g, wya, g);
+			r = std::fmaf(s_px->r, wya, r);
 			a += wya;
 			ww += wy;
 		}
@@ -528,11 +536,11 @@ public:
 	invoke_interpolate(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		}
@@ -558,22 +566,22 @@ ksa_deinterlace_spatial(lua_State *L)
 class DiTemporal {
 private:
 	void
-	interpolate(const int &x, const int &y)
+	interpolate(int x, int y)
 	{
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == 255 && px_f->a == 255 ) {
+		if ( px_p->a == 255u && px_f->a == 255u ) {
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
-			px_d->a = static_cast<unsigned char>(255);
+			px_d->a = static_cast<unsigned char>(255u);
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
-			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
-			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
-			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
+			px_d->b = uc_cast( std::fmaf(px_p->b, pa, px_f->b*fa) / pafa );
+			px_d->g = uc_cast( std::fmaf(px_p->g, pa, px_f->g*fa) / pafa );
+			px_d->r = uc_cast( std::fmaf(px_p->r, pa, px_f->r*fa) / pafa );
 			px_d->a = static_cast<unsigned char>( (static_cast<int>(px_p->a)+static_cast<int>(px_f->a))>>1 );
 		}
 	}
@@ -586,11 +594,11 @@ public:
 	invoke_interpolate(int x)
 	{
 		if ( top ) {
-			for (int y=0; y<h; y+=2) {
+			for (auto y=0; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		} else {
-			for (int y=1; y<h; y+=2) {
+			for (auto y=1; y<h; y+=2) {
 				interpolate(x, y);
 			}
 		}
@@ -607,7 +615,7 @@ ksa_deinterlace_temporal(lua_State *L)
 	it.future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.w = lua_tointeger(L, ++i);
 	it.h = lua_tointeger(L, ++i);
-	it.top = !( lua_tointeger(L, ++i) );
+	it.top = ( lua_tointeger(L, ++i) != 0 );
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
@@ -618,7 +626,7 @@ ksa_deinterlace_temporal(lua_State *L)
 class DiGhost {
 private:
 	void
-	interpolate_spatial(PIXEL_BGRA *d, const bool &t, const int &x, const int &y)
+	interpolate_spatial(PIXEL_BGRA *d, bool t, int x, int y)
 	{
 		int start=y-5, end=y+6, skip=0;
 		if ( start<0 ) {
@@ -632,13 +640,13 @@ private:
 			end = h;
 		}
 		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
-		for (int sy=start+skip; sy<end; sy+=2) {
+		for (auto sy=start+skip; sy<end; sy+=2) {
 			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
 			const auto s_px = &d[sy*w+x];
 			const auto wya = wy*s_px->a;
-			b += s_px->b*wya;
-			g += s_px->g*wya;
-			r += s_px->r*wya;
+			b = std::fmaf(s_px->b, wya, b);
+			g = std::fmaf(s_px->g, wya, g);
+			r = std::fmaf(s_px->r, wya, r);
 			a += wya;
 			ww += wy;
 		}
@@ -649,50 +657,50 @@ private:
 		d_px->a = uc_cast(a/ww);
 	}
 	void
-	interpolate_temporal(const int &x, const int &y)
+	interpolate_temporal(int x, int y)
 	{
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d = past_temp+idx;
 		const PIXEL_BGRA *px_f = future+idx;
-		if ( px_d->a == 255 && px_f->a == 255 ) {
+		if ( px_d->a == 255u && px_f->a == 255u ) {
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_f->b))>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
 		} else {
 			const float pa = px_d->a, fa = px_f->a;
 			const float pafa = pa+fa;
-			px_d->b = uc_cast( ( px_d->b*pa + px_f->b*fa ) / pafa );
-			px_d->g = uc_cast( ( px_d->g*pa + px_f->g*fa ) / pafa );
-			px_d->r = uc_cast( ( px_d->r*pa + px_f->r*fa ) / pafa );
+			px_d->b = uc_cast( std::fmaf(px_d->b, pa, px_f->b*fa) / pafa );
+			px_d->g = uc_cast( std::fmaf(px_d->g, pa, px_f->g*fa) / pafa );
+			px_d->r = uc_cast( std::fmaf(px_d->r, pa, px_f->r*fa) / pafa );
 			px_d->a = uc_cast( pafa*0.5f );
 		}
 	}
 	constexpr void
-	interpolate0(const int &x, const int &y)
+	interpolate0(int x, int y)
 	{
 		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
 	constexpr void
-	interpolate1(const int &x, const int &y)
+	interpolate1(int x, int y)
 	{
 		interpolate_spatial(past_temp, !top, x, y);
 	}
 	void
-	mix(const int &x, const int &y)
+	mix(int x, int y)
 	{
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
-		if ( px_d->a == 255 && px_t->a == 255 ) {
+		if ( px_d->a == 255u && px_t->a == 255u ) {
 			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
 			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
 			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
 		} else {
 			const float da = px_d->a, ta = px_t->a;
 			const float data = da+ta;
-			px_d->b = uc_cast( ( px_d->b*da + px_t->b*ta ) / data );
-			px_d->g = uc_cast( ( px_d->g*da + px_t->g*ta ) / data );
-			px_d->r = uc_cast( ( px_d->r*da + px_t->r*ta ) / data );
+			px_d->b = uc_cast( std::fmaf(px_d->b, da, px_t->b*ta) / data );
+			px_d->g = uc_cast( std::fmaf(px_d->g, da, px_t->g*ta) / data );
+			px_d->r = uc_cast( std::fmaf(px_d->r, da, px_t->r*ta) / data );
 			px_d->a = uc_cast( data*0.5f );
 		}
 	}
@@ -746,7 +754,7 @@ ksa_deinterlace_ghost(lua_State *L)
 	it.future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.w = lua_tointeger(L, ++i);
 	it.h = lua_tointeger(L, ++i);
-	it.top = !( lua_tointeger(L, ++i) );
+	it.top = ( lua_tointeger(L, ++i) != 0 );
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);

@@ -1,5 +1,5 @@
 --label:KSA
---track@gw:幅,0,1000,10,1
+--track@gw:幅,1,1000,10,1
 --check@round:角丸,true
 --track@type:タイプ,0,1,1,1
 --group:追加,false
