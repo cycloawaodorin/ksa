@@ -95,7 +95,7 @@ if ( ( cl+cr < sw ) and ( ct+cb < sh ) and ( 0 < dw ) and ( 0 < dh ) ) then
 		if ( obj.check0 ) then
 			dh = ksa.round( dh*(sh-ct-cb)/(sh-ct-cb+ctb*2) )
 		else
-			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track1*1e-4 )
+			dh = ksa.round( ( sh-ct-cb )*obj.track0*obj.track2*1e-4 )
 		end
 	end
 	if ( dw ~= _dw or dh ~= _dh ) then
