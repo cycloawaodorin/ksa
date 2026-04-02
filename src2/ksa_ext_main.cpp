@@ -288,7 +288,7 @@ uc_cast(std::int64_t num, std::int64_t den)
 			return static_cast<unsigned char>((num-r)/den);
 		} else if ( r*2 == den ) {
 			r = (num-r)/den;
-			if ( r%2 == 0 ) {
+			if ( (r&1) == 0 ) {
 				return static_cast<unsigned char>(r);
 			} else {
 				return static_cast<unsigned char>(r+1);

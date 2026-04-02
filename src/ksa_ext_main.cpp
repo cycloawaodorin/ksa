@@ -273,7 +273,7 @@ uc_cast(std::uint32_t num, std::uint32_t den)
 			return static_cast<unsigned char>((num-r)/den);
 		} else if ( r*2u == den ) {
 			r = (num-r)/den;
-			if ( r%2u == 0u ) {
+			if ( (r&1u) == 0u ) {
 				return static_cast<unsigned char>(r);
 			} else {
 				return static_cast<unsigned char>(r+1u);
