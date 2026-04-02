@@ -187,7 +187,7 @@ ksa_edgegrad(lua_State *L)
 	it.b = lua_tointeger(L, ++i);
 	it.l = lua_tointeger(L, ++i);
 	it.r = lua_tointeger(L, ++i);
-	it.round = (lua_tointeger(L, ++i)!=0);
+	it.round = ( lua_tointeger(L, ++i) != 0 );
 	it.type = lua_tointeger(L, ++i);
 	
 	TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
@@ -238,8 +238,8 @@ private:
 				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
 				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
 			} else {
-				range->start = static_cast<int>( ( range->center - reversed_scale*3 ).ceil_eps() );
-				range->end = static_cast<int>( ( range->center + reversed_scale*3 ).floor_eps() );
+				range->start = static_cast<int>( ( range->center - reversed_scale*3ll ).ceil_eps() );
+				range->end = static_cast<int>( ( range->center + reversed_scale*3ll ).floor_eps() );
 			}
 			range->skipped = 0;
 			if ( range->start < 0 ) {
@@ -255,8 +255,8 @@ private:
 		{
 			reversed_scale = Rational(src_size-clip_start-clip_end, dest_size);
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
-			correction = (reversed_scale-1)/2 + clip_start;
-			weight_scale = extend ? Rational(1) : reversed_scale.reciprocal();
+			correction = (reversed_scale-1ll)/2ll + clip_start;
+			weight_scale = extend ? Rational(1ll) : reversed_scale.reciprocal();
 			var = (dest_size)/std::gcd(dest_size, src_size-clip_start-clip_end);
 			weights = std::make_unique<std::unique_ptr<float[]>[]>(var);
 		}
@@ -266,14 +266,14 @@ private:
 			const Rational c = reversed_scale*i + correction;
 			std::intmax_t s, e;
 			if ( extend ) {
-				s = c.ceil_eps() - 3;
-				e = c.floor_eps() + 3;
+				s = c.ceil_eps() - 3ll;
+				e = c.floor_eps() + 3ll;
 			} else {
-				s = ( c - reversed_scale*3 ).ceil_eps();
-				e = ( c + reversed_scale*3 ).floor_eps();
+				s = ( c - reversed_scale*3ll ).ceil_eps();
+				e = ( c + reversed_scale*3ll ).floor_eps();
 			}
 			auto j = static_cast<std::size_t>(i);
-			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1));
+			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1ll));
 			for ( auto sxy = s; sxy <= e; sxy++ ) {
 				weights[j][static_cast<std::size_t>(sxy-s)] = lanczos3( ((c-sxy)*weight_scale).to_float() );
 			}
