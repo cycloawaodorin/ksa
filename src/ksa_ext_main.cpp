@@ -15,7 +15,7 @@ class Rational {
 private:
 	std::intmax_t numerator, denominator;
 public:
-	Rational(const std::intmax_t &num, const std::intmax_t &den)
+	Rational(std::intmax_t num, std::intmax_t den)
 	{
 		if ( den == 0ll ) {
 			throw std::invalid_argument("denominator must not be zero");
@@ -29,7 +29,7 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(const std::intmax_t &i) : numerator(i), denominator(1ll) {}
+	Rational(std::intmax_t i) : numerator(i), denominator(1ll) {}
 	Rational() : numerator(0ll), denominator(1ll) {}
 	std::intmax_t
 	get_numerator()

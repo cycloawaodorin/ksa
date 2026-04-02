@@ -32,7 +32,7 @@ class Rational {
 private:
 	std::intmax_t numerator, denominator;
 public:
-	Rational(const std::intmax_t &num, const std::intmax_t &den)
+	Rational(std::intmax_t num, std::intmax_t den)
 	{
 		if ( den == 0ll ) {
 			throw std::invalid_argument("denominator must not be zero");
@@ -54,7 +54,7 @@ public:
 		int e;
 		f = std::frexp(f, &e);
 		f = std::ldexp(f, 24);
-		numerator = static_cast<std::intmax_t>(f);
+		numerator = std::llrint(f);
 		if ( e < 24 ) {
 			denominator = 1ll<<(24-e);
 			auto c = std::gcd(numerator, denominator);

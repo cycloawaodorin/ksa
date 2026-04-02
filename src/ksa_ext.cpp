@@ -3,7 +3,7 @@ class Trsgrad {
 	float
 	calc_grad(float x, float y)
 	const {
-		float d = sx * ( x - cx ) + sy * ( y - cy );
+		float d = std::fma(sx, x-cx, sy*(y-cy));
 		if ( d < -0.5f ) {
 			return a0;
 		} else if ( 0.5f < d ) {
@@ -12,7 +12,7 @@ class Trsgrad {
 			if ( type == 1 ) {
 				d = 0.5f*std::sin(PI*d);
 			}
-			return (a_int+a_cef*d);
+			return std::fma(a_cef, d, a_int);
 		}
 	}
 public:
@@ -293,9 +293,9 @@ private:
 				const auto wxy = wy*wxs[sx-(xrange->start)+(xrange->skipped)];
 				const auto s_px = &src[sy*(x.src_size)+sx];
 				const auto wxya = wxy*s_px->a;
-				b += s_px->b*wxya;
-				g += s_px->g*wxya;
-				r += s_px->r*wxya;
+				b = std::fmaf(s_px->b, wxya, b);
+				g = std::fmaf(s_px->g, wxya, g);
+				r = std::fmaf(s_px->r, wxya, r);
 				a += wxya;
 				w += wxy;
 			}
@@ -512,9 +512,9 @@ private:
 			const auto wy = WEIGHTS[(sy-start)>>1];
 			const auto s_px = &dest[sy*w+x];
 			const auto wya = wy*s_px->a;
-			b += s_px->b*wya;
-			g += s_px->g*wya;
-			r += s_px->r*wya;
+			b = std::fmaf(s_px->b, wya, b);
+			g = std::fmaf(s_px->g, wya, g);
+			r = std::fmaf(s_px->r, wya, r);
 			a += wya;
 			ww += wy;
 		}
@@ -579,9 +579,9 @@ private:
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
-			px_d->b = uc_cast( ( px_p->b*pa + px_f->b*fa ) / pafa );
-			px_d->g = uc_cast( ( px_p->g*pa + px_f->g*fa ) / pafa );
-			px_d->r = uc_cast( ( px_p->r*pa + px_f->r*fa ) / pafa );
+			px_d->b = uc_cast( std::fmaf(px_p->b, pa, px_f->b*fa) / pafa );
+			px_d->g = uc_cast( std::fmaf(px_p->g, pa, px_f->g*fa) / pafa );
+			px_d->r = uc_cast( std::fmaf(px_p->r, pa, px_f->r*fa) / pafa );
 			px_d->a = static_cast<unsigned char>( (static_cast<int>(px_p->a)+static_cast<int>(px_f->a))>>1 );
 		}
 	}
@@ -644,9 +644,9 @@ private:
 			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
 			const auto s_px = &d[sy*w+x];
 			const auto wya = wy*s_px->a;
-			b += s_px->b*wya;
-			g += s_px->g*wya;
-			r += s_px->r*wya;
+			b = std::fmaf(s_px->b, wya, b);
+			g = std::fmaf(s_px->g, wya, g);
+			r = std::fmaf(s_px->r, wya, r);
 			a += wya;
 			ww += wy;
 		}
@@ -669,9 +669,9 @@ private:
 		} else {
 			const float pa = px_d->a, fa = px_f->a;
 			const float pafa = pa+fa;
-			px_d->b = uc_cast( ( px_d->b*pa + px_f->b*fa ) / pafa );
-			px_d->g = uc_cast( ( px_d->g*pa + px_f->g*fa ) / pafa );
-			px_d->r = uc_cast( ( px_d->r*pa + px_f->r*fa ) / pafa );
+			px_d->b = uc_cast( std::fmaf(px_d->b, pa, px_f->b*fa) / pafa );
+			px_d->g = uc_cast( std::fmaf(px_d->g, pa, px_f->g*fa) / pafa );
+			px_d->r = uc_cast( std::fmaf(px_d->r, pa, px_f->r*fa) / pafa );
 			px_d->a = uc_cast( pafa*0.5f );
 		}
 	}
@@ -698,9 +698,9 @@ private:
 		} else {
 			const float da = px_d->a, ta = px_t->a;
 			const float data = da+ta;
-			px_d->b = uc_cast( ( px_d->b*da + px_t->b*ta ) / data );
-			px_d->g = uc_cast( ( px_d->g*da + px_t->g*ta ) / data );
-			px_d->r = uc_cast( ( px_d->r*da + px_t->r*ta ) / data );
+			px_d->b = uc_cast( std::fmaf(px_d->b, da, px_t->b*ta) / data );
+			px_d->g = uc_cast( std::fmaf(px_d->g, da, px_t->g*ta) / data );
+			px_d->r = uc_cast( std::fmaf(px_d->r, da, px_t->r*ta) / data );
 			px_d->a = uc_cast( data*0.5f );
 		}
 	}
