@@ -47,7 +47,24 @@ public:
 		}
 	}
 	Rational(const std::intmax_t &i) : numerator(i), denominator(1) {}
+	Rational(int i) : numerator(i), denominator(1) {}
 	Rational() : numerator(0), denominator(1) {}
+	Rational(float f)
+	{
+		int e;
+		f = std::frexp(f, &e);
+		f = std::ldexp(f, 24);
+		numerator = static_cast<std::intmax_t>(f);
+		if ( e < 24 ) {
+			denominator = static_cast<std::intmax_t>(1)<<(24-e);
+			auto c = std::gcd(numerator, denominator);
+			numerator /= c;
+			denominator /= c;
+		} else {
+			numerator <<= e-24;
+			denominator = 1;
+		}
+	}
 	std::intmax_t
 	get_numerator()
 	const {
