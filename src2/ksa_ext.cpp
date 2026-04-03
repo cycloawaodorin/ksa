@@ -568,9 +568,9 @@ private:
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
 		if ( px_p->a == 255u && px_f->a == 255u ) {
-			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_p->r)+static_cast<int>(px_f->r))>>1 );
-			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_p->g)+static_cast<int>(px_f->g))>>1 );
-			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_p->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->r = std::midpoint(px_p->r, px_f->r);
+			px_d->g = std::midpoint(px_p->g, px_f->g);
+			px_d->b = std::midpoint(px_p->b, px_f->b);
 			px_d->a = static_cast<unsigned char>(255u);
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
@@ -578,7 +578,7 @@ private:
 			px_d->r = uc_cast( std::fmaf(px_p->r, pa, px_f->r*fa) / pafa );
 			px_d->g = uc_cast( std::fmaf(px_p->g, pa, px_f->g*fa) / pafa );
 			px_d->b = uc_cast( std::fmaf(px_p->b, pa, px_f->b*fa) / pafa );
-			px_d->a = static_cast<unsigned char>( (static_cast<int>(px_p->a)+static_cast<int>(px_f->a))>>1 );
+			px_d->a = std::midpoint(px_p->a, px_f->a);
 		}
 	}
 public:
@@ -658,16 +658,16 @@ private:
 		auto px_d = &past_temp[idx];
 		const auto px_f = &future[idx];
 		if ( px_d->a == 255u && px_f->a == 255u ) {
-			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_f->r))>>1 );
-			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_f->g))>>1 );
-			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_f->b))>>1 );
+			px_d->r = std::midpoint(px_d->r, px_f->r);
+			px_d->g = std::midpoint(px_d->g, px_f->g);
+			px_d->b = std::midpoint(px_d->b, px_f->b);
 		} else {
 			const float pa = px_d->a, fa = px_f->a;
 			const float pafa = pa+fa;
 			px_d->r = uc_cast( std::fmaf(px_d->r, pa, px_f->r*fa) / pafa );
 			px_d->g = uc_cast( std::fmaf(px_d->g, pa, px_f->g*fa) / pafa );
 			px_d->b = uc_cast( std::fmaf(px_d->b, pa, px_f->b*fa) / pafa );
-			px_d->a = uc_cast( pafa*0.5f );
+			px_d->a = std::midpoint(px_d->a, px_f->a);
 		}
 	}
 	void
@@ -687,16 +687,16 @@ private:
 		const int idx = y*w+x;
 		auto px_d=&dest[idx], px_t=&past_temp[idx];
 		if ( px_d->a == 255u && px_t->a == 255u ) {
-			px_d->r = static_cast<unsigned char>( (static_cast<int>(px_d->r)+static_cast<int>(px_t->r)+1)>>1 );
-			px_d->g = static_cast<unsigned char>( (static_cast<int>(px_d->g)+static_cast<int>(px_t->g)+1)>>1 );
-			px_d->b = static_cast<unsigned char>( (static_cast<int>(px_d->b)+static_cast<int>(px_t->b)+1)>>1 );
+			px_d->r = std::midpoint(px_d->r, px_t->r);
+			px_d->g = std::midpoint(px_d->g, px_t->g);
+			px_d->b = std::midpoint(px_d->b, px_t->b);
 		} else {
 			const float da = px_d->a, ta = px_t->a;
 			const float data = da+ta;
 			px_d->r = uc_cast( std::fmaf(px_d->r, da, px_t->r*ta) / data );
 			px_d->g = uc_cast( std::fmaf(px_d->g, da, px_t->g*ta) / data );
 			px_d->b = uc_cast( std::fmaf(px_d->b, da, px_t->b*ta) / data );
-			px_d->a = uc_cast( data*0.5f );
+			px_d->a = std::midpoint(px_d->a, px_t->a);
 		}
 	}
 public:

@@ -187,7 +187,7 @@ private:
 		}
 	}
 public:
-	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true)
+	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true), current_i(0), max_i(0)
 	{
 		threads = std::make_unique<Thread[]>(size);
 		for (auto i=0uz; i<size; i++) {
