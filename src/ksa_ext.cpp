@@ -54,7 +54,7 @@ ksa_trsgrad(lua_State *L)
 	it.a_int = ((it.a0)+(it.a1))*0.5f;
 	
 	// グラデーション反映
-	TP->parallel_do([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+	TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
 	
 	return 0;
 }
@@ -359,7 +359,7 @@ ksa_clip_resize(lua_State *L)
 	it.x.calc_params();
 	it.y.calc_params();
 	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
-	TP->parallel_do([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
+	TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
@@ -451,7 +451,7 @@ ksa_clip_resize_ave(lua_State *L)
 	it.w = static_cast<std::uint32_t>( (it.x.dc)*(it.y.dc) );
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
 	
 	return 0;
 }
@@ -486,7 +486,7 @@ ksa_deinterlace_nn(lua_State *L)
 	it.top = !( lua_tointeger(L, ++i) );
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.doubling(j); }, it.h/2);
+	TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
 	
 	return 0;
 }
@@ -555,7 +555,7 @@ ksa_deinterlace_spatial(lua_State *L)
 	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
 	it.w = lua_tointeger(L, ++i);
 	it.h = lua_tointeger(L, ++i);
-	it.top = !( lua_tointeger(L, ++i) );
+	it.top = ( lua_tointeger(L, ++i) != 0 );
 	
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
@@ -618,7 +618,7 @@ ksa_deinterlace_temporal(lua_State *L)
 	it.top = ( lua_tointeger(L, ++i) != 0 );
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
 	
 	return 0;
 }
@@ -759,7 +759,7 @@ ksa_deinterlace_ghost(lua_State *L)
 	// 本処理
 	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
 	TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
-	TP->parallel_do([&it](int j){ it.invoke_mix(j); }, it.w);
+	TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
 	
 	return 0;
 }
