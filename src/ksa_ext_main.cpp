@@ -171,7 +171,7 @@ private:
 		while (alive) {
 			{ // ジョブが来るまで待機
 				auto lk=std::unique_lock(th->mx);
-				th->cv.wait(lk, [&]{ return th->ready; });
+				th->cv.wait(lk, [th]{ return th->ready; });
 			}
 			for ( int i=max_i; current_i<max_i; ) { // ジョブの取り出しと実行
 				i = current_i++;
@@ -229,7 +229,7 @@ public:
 		}
 		for (auto i=0uz; i<size; i++) { // 全ワーカーの終了を待つ
 			auto lk=std::unique_lock(threads[i].mx);
-			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
+			threads[i].cv.wait(lk, [this, i]{ return !(threads[i].ready); });
 		}
 		func = nullptr;
 		if ( ep ) {
