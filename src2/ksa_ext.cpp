@@ -34,29 +34,33 @@ public:
 static void
 ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 10) ) { return; }
-	int i=0;
-	Trsgrad it;
-	it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.cx = static_cast<float>(param->get_param_double(i++));
-	it.cy = static_cast<float>(param->get_param_double(i++));
-	const auto angle = static_cast<float>(param->get_param_double(i++));
-	const auto gwidth = static_cast<float>(param->get_param_double(i++));
-	it.a0 = static_cast<float>(param->get_param_double(i++));
-	it.a1 = static_cast<float>(param->get_param_double(i++));
-	it.type = param->get_param_int(i++);
-	
-	// パラメータ計算
-	it.sx = -std::sin(angle)/gwidth;
-	it.sy = std::cos(angle)/gwidth;
-	it.a_cef = (it.a1)-(it.a0);
-	it.a_int = ((it.a0)+(it.a1))*0.5f;
-	
-	// グラデーション反映
-	TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+	try {
+		// 引数受け取り
+		int i=0;
+		Trsgrad it;
+		it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.cx = static_cast<float>(param->get_param_double(i++));
+		it.cy = static_cast<float>(param->get_param_double(i++));
+		const auto angle = static_cast<float>(param->get_param_double(i++));
+		const auto gwidth = static_cast<float>(param->get_param_double(i++));
+		it.a0 = static_cast<float>(param->get_param_double(i++));
+		it.a1 = static_cast<float>(param->get_param_double(i++));
+		it.type = param->get_param_int(i++);
+		
+		// パラメータ計算
+		it.sx = -std::sin(angle)/gwidth;
+		it.sy = std::cos(angle)/gwidth;
+		it.a_cef = (it.a1)-(it.a0);
+		it.a_int = ((it.a0)+(it.a1))*0.5f;
+		
+		// グラデーション反映
+		TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 // 縁透明グラデーション
@@ -179,19 +183,25 @@ static void
 ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 9) ) { return; }
-	int i=0;
-	Edgegrad it;
-	it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.t = param->get_param_int(i++);
-	it.b = param->get_param_int(i++);
-	it.l = param->get_param_int(i++);
-	it.r = param->get_param_int(i++);
-	it.round = param->get_param_boolean(i++);
-	it.type = param->get_param_int(i++);
-	
-	TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
+	try {
+		// 引数受け取り
+		int i=0;
+		Edgegrad it;
+		it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.t = param->get_param_int(i++);
+		it.b = param->get_param_int(i++);
+		it.l = param->get_param_int(i++);
+		it.r = param->get_param_int(i++);
+		it.round = param->get_param_boolean(i++);
+		it.type = param->get_param_int(i++);
+		
+		// 本処理
+		TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 // クリッピング & Lanczos3 拡大縮小
@@ -338,31 +348,35 @@ public:
 static void
 ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 10) ) { return; }
-	ClipResize it;
-	int i=0;
-	it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.x.src_size = param->get_param_int(i++);
-	it.y.src_size = param->get_param_int(i++);
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.x.dest_size = param->get_param_int(i++);
-	it.x.alloc_range();
-	it.y.dest_size = param->get_param_int(i++);
-	it.y.alloc_range();
-	it.y.clip_start = param->get_param_int(i++);
-	it.y.clip_end = param->get_param_int(i++);
-	it.x.clip_start = param->get_param_int(i++);
-	it.x.clip_end = param->get_param_int(i++);
-	
-	// パラメータ計算
-	it.x.calc_params();
-	it.y.calc_params();
-	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
-	TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
-	
-	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	try {
+		// 引数受け取り
+		ClipResize it;
+		int i=0;
+		it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.x.src_size = param->get_param_int(i++);
+		it.y.src_size = param->get_param_int(i++);
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.x.dest_size = param->get_param_int(i++);
+		it.x.alloc_range();
+		it.y.dest_size = param->get_param_int(i++);
+		it.y.alloc_range();
+		it.y.clip_start = param->get_param_int(i++);
+		it.y.clip_end = param->get_param_int(i++);
+		it.x.clip_start = param->get_param_int(i++);
+		it.x.clip_end = param->get_param_int(i++);
+		
+		// パラメータ計算
+		it.x.calc_params();
+		it.y.calc_params();
+		TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
+		TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
+
+		// 本処理
+		TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 // クリッピング & 画素平均法 拡大縮小
@@ -429,28 +443,32 @@ public:
 static void
 ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 10) ) { return; }
-	ClipResizeAve it;
-	int i=0;
-	it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.x.src_size = param->get_param_int(i++);
-	it.y.src_size = param->get_param_int(i++);
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.x.dest_size = param->get_param_int(i++);
-	it.y.dest_size = param->get_param_int(i++);
-	it.y.clip_start = param->get_param_int(i++);
-	it.y.clip_end = param->get_param_int(i++);
-	it.x.clip_start = param->get_param_int(i++);
-	it.x.clip_end = param->get_param_int(i++);
-	
-	// パラメータ計算
-	it.x.calc_params();
-	it.y.calc_params();
-	it.w = static_cast<std::int64_t>( (it.x.dc)*(it.y.dc) );
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	try {
+		// 引数受け取り
+		ClipResizeAve it;
+		int i=0;
+		it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.x.src_size = param->get_param_int(i++);
+		it.y.src_size = param->get_param_int(i++);
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.x.dest_size = param->get_param_int(i++);
+		it.y.dest_size = param->get_param_int(i++);
+		it.y.clip_start = param->get_param_int(i++);
+		it.y.clip_end = param->get_param_int(i++);
+		it.x.clip_start = param->get_param_int(i++);
+		it.x.clip_end = param->get_param_int(i++);
+		
+		// パラメータ計算
+		it.x.calc_params();
+		it.y.calc_params();
+		it.w = static_cast<std::int64_t>( (it.x.dc)*(it.y.dc) );
+		
+		// 本処理
+		TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 class DiNN {
@@ -474,17 +492,21 @@ public:
 static void
 ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 4) ) { return; }
-	DiNN it;
-	int i=0;
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.top = param->get_param_boolean(i++);
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
+	try {
+		// 引数受け取り
+		DiNN it;
+		int i=0;
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.top = param->get_param_boolean(i++);
+		
+		// 本処理
+		TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 class DiSpatial {
@@ -546,17 +568,21 @@ public:
 static void
 ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 4) ) { return; }
-	DiSpatial it;
-	int i=0;
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.top = param->get_param_boolean(i++);
-	
-	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	try {
+		// 引数受け取り
+		DiSpatial it;
+		int i=0;
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.top = param->get_param_boolean(i++);
+		
+		// 本処理
+		TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 class DiTemporal {
@@ -603,19 +629,23 @@ public:
 static void
 ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 6) ) { return; }
-	DiTemporal it;
-	int i=0;
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.top = param->get_param_boolean(i++);
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	try {
+		// 引数受け取り
+		DiTemporal it;
+		int i=0;
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.top = param->get_param_boolean(i++);
+		
+		// 本処理
+		TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }
 
 class DiGhost {
@@ -741,19 +771,23 @@ public:
 static void
 ksa_deinterlace_ghost(SCRIPT_MODULE_PARAM *param)
 {
-	// 引数受け取り
 	if ( check_arg_num(param, 6) ) { return; }
-	DiGhost it;
-	int i=0;
-	it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-	it.w = param->get_param_int(i++);
-	it.h = param->get_param_int(i++);
-	it.top = param->get_param_boolean(i++);
-	
-	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
-	TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
-	TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
+	try {
+		// 引数受け取り
+		DiGhost it;
+		int i=0;
+		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		it.w = param->get_param_int(i++);
+		it.h = param->get_param_int(i++);
+		it.top = param->get_param_boolean(i++);
+		
+		// 本処理
+		TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
+		TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
+		TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
+	} catch (std::exception &e) {
+		exception_to_message(param, e);
+	}
 }

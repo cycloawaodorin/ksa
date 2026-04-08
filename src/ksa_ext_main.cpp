@@ -7,6 +7,7 @@
 #include <numeric>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <stdexcept>
 
 namespace KSA {
@@ -152,19 +153,18 @@ public:
 class ThreadPool {
 private:
 	struct Thread {
-		bool ready;
 		std::thread thread;
 		std::mutex mx;
 		std::condition_variable cv;
-		Thread() : ready(false) {}
+		bool ready=false;
 	};
 	std::size_t size;
 	bool alive=true;
 	std::unique_ptr<Thread[]> threads;
 	std::function<void(int)> func;
-	std::mutex gmx;
 	std::atomic<int> current_i=0;
 	int max_i=0;
+	std::exception_ptr ep;
 	void
 	listen(Thread *th)
 	{
@@ -175,8 +175,13 @@ private:
 			}
 			for ( int i=max_i; current_i<max_i; ) { // ジョブの取り出しと実行
 				i = current_i++;
-				if ( i < max_i ) {
-					func(i);
+				try {
+					if ( i < max_i ) {
+						func(i);
+					}
+				} catch (...) { // func からの例外を補足
+					ep = std::current_exception();
+					current_i = max_i;
 				}
 			}
 			{ // 全ジョブ完了
@@ -209,7 +214,6 @@ public:
 		for (auto i=0uz; i<size; i++) {
 			threads[i].thread.join();
 		}
-		func = nullptr;
 	}
 	void
 	parallel_do(std::function<void(int)> f, int n)
@@ -226,6 +230,12 @@ public:
 		for (auto i=0uz; i<size; i++) { // 全ワーカーの終了を待つ
 			auto lk=std::unique_lock(threads[i].mx);
 			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
+		}
+		func = nullptr;
+		if ( ep ) {
+			auto ep_ = ep;
+			ep = nullptr;
+			std::rethrow_exception(ep_);
 		}
 	}
 	void
