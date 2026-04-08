@@ -212,7 +212,7 @@ private:
 					if ( i < max_i ) {
 						func(i);
 					}
-				} catch (...) { // func からの例外を補足
+				} catch (...) { // func からの例外を捕捉
 					ep = std::current_exception();
 					current_i = max_i;
 				}
@@ -266,9 +266,7 @@ public:
 		}
 		func = nullptr;
 		if ( ep ) {
-			auto ep_ = ep;
-			ep = nullptr;
-			std::rethrow_exception(ep_);
+			std::rethrow_exception(std::exchange(ep, nullptr));
 		}
 	}
 	void
