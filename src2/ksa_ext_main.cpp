@@ -4,10 +4,10 @@
 #include <condition_variable>
 #include <functional>
 #include <atomic>
-#include <format>
 #include <numeric>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <stdexcept>
 #include <format>
 #include "module2.hpp"
@@ -186,31 +186,35 @@ public:
 class ThreadPool {
 private:
 	struct Thread {
-		bool ready;
 		std::thread thread;
 		std::mutex mx;
 		std::condition_variable cv;
-		Thread() : ready(false) {}
+		bool ready=false;
 	};
 	std::size_t size;
-	bool alive;
+	bool alive=true;
 	std::unique_ptr<Thread[]> threads;
 	std::function<void(int)> func;
-	std::mutex gmx;
-	std::atomic<int> current_i;
-	int max_i;
+	std::atomic<int> current_i=0;
+	int max_i=0;
+	std::exception_ptr ep;
 	void
 	listen(Thread *th)
 	{
 		while (alive) {
 			{ // ジョブが来るまで待機
 				auto lk=std::unique_lock(th->mx);
-				th->cv.wait(lk, [&]{ return th->ready; });
+				th->cv.wait(lk, [th]{ return th->ready; });
 			}
 			for ( int i=max_i; current_i<max_i; ) { // ジョブの取り出しと実行
 				i = current_i++;
-				if ( i < max_i ) {
-					func(i);
+				try {
+					if ( i < max_i ) {
+						func(i);
+					}
+				} catch (...) { // func からの例外を捕捉
+					ep = std::current_exception();
+					current_i = max_i;
 				}
 			}
 			{ // 全ジョブ完了
@@ -221,7 +225,7 @@ private:
 		}
 	}
 public:
-	ThreadPool() : size(std::thread::hardware_concurrency()), alive(true), current_i(0), max_i(0)
+	ThreadPool() : size(std::thread::hardware_concurrency())
 	{
 		threads = std::make_unique<Thread[]>(size);
 		for (auto i=0uz; i<size; i++) {
@@ -243,7 +247,6 @@ public:
 		for (auto i=0uz; i<size; i++) {
 			threads[i].thread.join();
 		}
-		func = nullptr;
 	}
 	void
 	parallel_do(std::function<void(int)> f, int n)
@@ -259,7 +262,11 @@ public:
 		}
 		for (auto i=0uz; i<size; i++) { // 全ワーカーの終了を待つ
 			auto lk=std::unique_lock(threads[i].mx);
-			threads[i].cv.wait(lk, [&]{ return !(threads[i].ready); });
+			threads[i].cv.wait(lk, [this, i]{ return !(threads[i].ready); });
+		}
+		func = nullptr;
+		if ( ep ) {
+			std::rethrow_exception(std::exchange(ep, nullptr));
 		}
 	}
 	void
@@ -321,12 +328,19 @@ check_arg_num(SCRIPT_MODULE_PARAM* param, const int n)
 {
 	auto n_given=param->get_param_num();
 	if ( n != n_given ) {
-		static std::string str=std::format("number of arguments must be {}, but {} given", n, n_given);
+		static auto str = std::format("number of arguments must be {}, but {} given", n, n_given);
 		param->set_error(str.c_str());
 		return true;
 	} else {
 		return false;
 	}
+}
+
+static void
+exception_to_message(SCRIPT_MODULE_PARAM* param, std::exception &e)
+{
+	static auto str = std::format("exception '{}' has been thrown", e.what());
+	param->set_error(str.c_str());
 }
 
 #include "ksa_ext.cpp"
