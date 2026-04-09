@@ -115,7 +115,7 @@ public:
 		}
 	}
 	std::intmax_t
-	floor_eps()
+	ceilm1()
 	const {
 		const auto r = numerator % denominator;
 		if ( r <= 0ll ) {
@@ -135,7 +135,7 @@ public:
 		}
 	}
 	std::intmax_t
-	ceil_eps()
+	floorp1()
 	const {
 		const auto r = numerator % denominator;
 		if ( r < 0ll ) {

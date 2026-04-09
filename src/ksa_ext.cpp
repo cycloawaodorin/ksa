@@ -235,11 +235,11 @@ private:
 			auto range = &ranges[static_cast<std::size_t>(xy)];
 			range->center = reversed_scale*xy + correction;
 			if ( extend ) {
-				range->start = static_cast<int>( range->center.ceil_eps() ) - 3;
-				range->end = static_cast<int>( range->center.floor_eps() ) + 3;
+				range->start = static_cast<int>( range->center.floorp1() ) - 3;
+				range->end = static_cast<int>( range->center.ceilm1() ) + 3;
 			} else {
-				range->start = static_cast<int>( ( range->center - reversed_scale*3ll ).ceil_eps() );
-				range->end = static_cast<int>( ( range->center + reversed_scale*3ll ).floor_eps() );
+				range->start = static_cast<int>( ( range->center - reversed_scale*3ll ).floorp1() );
+				range->end = static_cast<int>( ( range->center + reversed_scale*3ll ).ceilm1() );
 			}
 			range->skipped = 0;
 			if ( range->start < clip_start ) {
@@ -266,11 +266,11 @@ private:
 			const Rational c = reversed_scale*i + correction;
 			std::intmax_t s, e;
 			if ( extend ) {
-				s = c.ceil_eps() - 3ll;
-				e = c.floor_eps() + 3ll;
+				s = c.floorp1() - 3ll;
+				e = c.ceilm1() + 3ll;
 			} else {
-				s = ( c - reversed_scale*3ll ).ceil_eps();
-				e = ( c + reversed_scale*3ll ).floor_eps();
+				s = ( c - reversed_scale*3ll ).floorp1();
+				e = ( c + reversed_scale*3ll ).ceilm1();
 			}
 			auto j = static_cast<std::size_t>(i);
 			weights[j] = std::make_unique<float[]>(static_cast<std::size_t>(e-s+1ll));
