@@ -5,6 +5,7 @@
 #include <functional>
 #include <atomic>
 #include <numeric>
+#include <numbers>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -283,18 +284,15 @@ public:
 };
 static std::unique_ptr<ThreadPool> TP;
 
-constexpr static const float PI = 3.141592653589793f;
-struct PIXEL_RGBA {
-	unsigned char r, g, b, a;
-};
+constexpr static const unsigned char u0=0u, u255=255u;
 
 static unsigned char
 uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
-		return static_cast<unsigned char>(0u);
+		return u0;
 	} else if ( 255.0f < x ) {
-		return static_cast<unsigned char>(255u);
+		return u255;
 	} else {
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
@@ -303,9 +301,9 @@ static unsigned char
 uc_cast(std::int64_t num, std::int64_t den)
 {
 	if ( num <= 0ll ) {
-		return static_cast<unsigned char>(0u);
+		return u0;
 	} else if ( 255ll*den <= num ) {
-		return static_cast<unsigned char>(255u);
+		return u255;
 	} else {
 		auto r = num % den;
 		if ( r*2ll < den ) {
@@ -322,6 +320,32 @@ uc_cast(std::int64_t num, std::int64_t den)
 		}
 	}
 }
+
+struct PIXEL_RGBA {
+	unsigned char r, g, b, a;
+};
+struct FloatRGBAW {
+	float r, g, b, a, w;
+	FloatRGBAW() : r(0.0f), g(0.0f), b(0.0f), a(0.0f), w(0.0f) {}
+	void
+	fma(const PIXEL_RGBA *s_px, float wxy)
+	{
+		const auto wxya = wxy*static_cast<float>(s_px->a);
+		r = std::fma(static_cast<float>(s_px->r), wxya, r);
+		g = std::fma(static_cast<float>(s_px->g), wxya, g);
+		b = std::fma(static_cast<float>(s_px->b), wxya, b);
+		a += wxya;
+		w += wxy;
+	}
+	void
+	put_pixel(PIXEL_RGBA *d_px)
+	const {
+		d_px->r = uc_cast(r/a);
+		d_px->g = uc_cast(g/a);
+		d_px->b = uc_cast(b/a);
+		d_px->a = uc_cast(a/w);
+	}
+};
 
 static bool
 check_arg_num(SCRIPT_MODULE_PARAM* param, const int n)

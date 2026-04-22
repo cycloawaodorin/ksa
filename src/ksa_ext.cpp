@@ -4,6 +4,7 @@ private:
 	float
 	calc_grad(float x, float y)
 	const {
+		constexpr static const float pi = std::numbers::pi_v<float>;
 		float d = std::fma(sx, x-cx, sy*(y-cy));
 		if ( d < -0.5f ) {
 			return a0;
@@ -11,7 +12,7 @@ private:
 			return a1;
 		} else {
 			if ( type == 1 ) {
-				d = 0.5f*std::sin(PI*d);
+				d = 0.5f*std::sin(pi*d);
 			}
 			return std::fma(a_cef, d, a_int);
 		}
@@ -209,7 +210,7 @@ class ClipResize {
 private:
 	class XY {
 	private:
-		struct RANGE {
+		struct Range {
 			int start, end, skipped;
 			Rational center;
 		};
@@ -225,18 +226,20 @@ private:
 		static float
 		lanczos3(float x)
 		{
-			return sinc(PI*x)*sinc((PI/3.0f)*x);
+			constexpr static const float pi = std::numbers::pi_v<float>;
+			constexpr static const float pi_third = pi/3.0f;
+			return sinc(pi*x)*sinc(pi_third*x);
 		}
 	public:
 		int src_size, dest_size, clip_start, clip_end, var;
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
-		std::unique_ptr<RANGE[]> ranges;
+		std::unique_ptr<Range[]> ranges;
 		void
 		alloc_range()
 		{
-			ranges = std::make_unique<RANGE[]>(static_cast<std::size_t>(dest_size));
+			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
 		}
 		void
 		calc_range(int xy)
@@ -293,27 +296,17 @@ private:
 	{
 		const auto xrange = &(x.ranges[static_cast<std::size_t>(dx)]);
 		const auto yrange = &(y.ranges[static_cast<std::size_t>(dy)]);
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
+		FloatRGBAW rgbaw;
 		const auto wxs = x.weights[ static_cast<std::size_t>( dx % (x.var) ) ].get();
 		const auto wys = y.weights[ static_cast<std::size_t>( dy % (y.var) ) ].get();
 		for ( auto sy=(yrange->start); sy<=(yrange->end); sy++ ) {
 			const auto wy = wys[sy-(yrange->start)+(yrange->skipped)];
 			for ( auto sx=(xrange->start); sx<=(xrange->end); sx++ ) {
 				const auto wxy = wy*wxs[sx-(xrange->start)+(xrange->skipped)];
-				const auto s_px = &src[sy*(x.src_size)+sx];
-				const auto wxya = wxy*s_px->a;
-				r = std::fmaf(s_px->r, wxya, r);
-				g = std::fmaf(s_px->g, wxya, g);
-				b = std::fmaf(s_px->b, wxya, b);
-				a += wxya;
-				w += wxy;
+				rgbaw.fma(&src[sy*(x.src_size)+sx], wxy);
 			}
 		}
-		auto d_px = &dest[dy*(x.dest_size)+dx];
-		d_px->r = uc_cast(r/a);
-		d_px->g = uc_cast(g/a);
-		d_px->b = uc_cast(b/a);
-		d_px->a = uc_cast(a/w);
+		rgbaw.put_pixel(&dest[dy*(x.dest_size)+dx]);
 	}
 public:
 	const PIXEL_RGBA *src;
@@ -382,33 +375,25 @@ ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 // クリッピング & 画素平均法 拡大縮小
 class ClipResizeAve {
 private:
-	class XY {
-	public:
+	struct XY {
 		int src_size, dest_size, clip_start, clip_end, sc, dc;
-		struct RANGE {
-			int start, end;
-		};
-		void
-		calc_range(int xy, RANGE *range)
-		const {
-			range->start = xy*dc;
-			range->end = (xy+1)*dc;
-		}
 		void
 		calc_params()
 		{
-			const int ss = src_size-clip_start-clip_end;
-			const int c = std::gcd(dest_size, ss);
+			const auto ss = src_size-clip_start-clip_end;
+			const auto c = std::gcd(dest_size, ss);
 			sc = dest_size/c;
 			dc = ss/c;
 		}
 	};
+	struct Range {
+		int start, end;
+		Range(int i, int dc) : start(i*dc), end((i+1)*dc) {}
+	};
 	void
 	interpolate(int dx, int dy)
 	{
-		XY::RANGE xrange, yrange;
-		x.calc_range(dx, &xrange);
-		y.calc_range(dy, &yrange);
+		Range xrange(dx, x.dc), yrange(dy, y.dc);
 		std::int64_t b=0ll, g=0ll, r=0ll, a=0ll;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
@@ -525,22 +510,12 @@ private:
 		if ( h<end ) {
 			end = h;
 		}
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		FloatRGBAW rgbaw;
 		for (auto sy=start+skip; sy<end; sy+=2) {
 			const auto wy = WEIGHTS[(sy-start)>>1];
-			const auto s_px = &dest[sy*w+x];
-			const auto wya = wy*s_px->a;
-			r = std::fmaf(s_px->r, wya, r);
-			g = std::fmaf(s_px->g, wya, g);
-			b = std::fmaf(s_px->b, wya, b);
-			a += wya;
-			ww += wy;
+			rgbaw.fma(&dest[sy*w+x], wy);
 		}
-		auto d_px = &dest[y*w+x];
-		d_px->r = uc_cast(r/a);
-		d_px->g = uc_cast(g/a);
-		d_px->b = uc_cast(b/a);
-		d_px->a = uc_cast(a/ww);
+		rgbaw.put_pixel(&dest[y*w+x]);
 	}
 public:
 	constexpr static const float WEIGHTS[] = {
@@ -593,11 +568,11 @@ private:
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == 255u && px_f->a == 255u ) {
+		if ( px_p->a == u255 && px_f->a == u255 ) {
 			px_d->r = std::midpoint(px_p->r, px_f->r);
 			px_d->g = std::midpoint(px_p->g, px_f->g);
 			px_d->b = std::midpoint(px_p->b, px_f->b);
-			px_d->a = static_cast<unsigned char>(255u);
+			px_d->a = u255;
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -664,22 +639,12 @@ private:
 		if ( h<end ) {
 			end = h;
 		}
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		FloatRGBAW rgbaw;
 		for (auto sy=start+skip; sy<end; sy+=2) {
 			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const auto s_px = &d[sy*w+x];
-			const auto wya = wy*s_px->a;
-			r = std::fmaf(s_px->r, wya, r);
-			g = std::fmaf(s_px->g, wya, g);
-			b = std::fmaf(s_px->b, wya, b);
-			a += wya;
-			ww += wy;
+			rgbaw.fma(&d[sy*w+x], wy);
 		}
-		auto d_px = &d[y*w+x];
-		d_px->r = uc_cast(r/a);
-		d_px->g = uc_cast(g/a);
-		d_px->b = uc_cast(b/a);
-		d_px->a = uc_cast(a/ww);
+		rgbaw.put_pixel(&d[y*w+x]);
 	}
 	void
 	interpolate_temporal(int x, int y)
@@ -687,7 +652,7 @@ private:
 		const int idx = y*w+x;
 		auto px_d = &past_temp[idx];
 		const auto px_f = &future[idx];
-		if ( px_d->a == 255u && px_f->a == 255u ) {
+		if ( px_d->a == u255 && px_f->a == u255 ) {
 			px_d->r = std::midpoint(px_d->r, px_f->r);
 			px_d->g = std::midpoint(px_d->g, px_f->g);
 			px_d->b = std::midpoint(px_d->b, px_f->b);
@@ -716,7 +681,7 @@ private:
 	{
 		const int idx = y*w+x;
 		auto px_d=&dest[idx], px_t=&past_temp[idx];
-		if ( px_d->a == 255u && px_t->a == 255u ) {
+		if ( px_d->a == u255 && px_t->a == u255 ) {
 			px_d->r = std::midpoint(px_d->r, px_t->r);
 			px_d->g = std::midpoint(px_d->g, px_t->g);
 			px_d->b = std::midpoint(px_d->b, px_t->b);
