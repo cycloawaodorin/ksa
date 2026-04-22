@@ -547,11 +547,11 @@ private:
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == 255u && px_f->a == 255u ) {
+		if ( px_p->a == u255 && px_f->a == u255 ) {
 			px_d->b = std::midpoint(px_p->b, px_f->b);
 			px_d->g = std::midpoint(px_p->g, px_f->g);
 			px_d->r = std::midpoint(px_p->r, px_f->r);
-			px_d->a = static_cast<unsigned char>(255u);
+			px_d->a = u255;
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -628,7 +628,7 @@ private:
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d = past_temp+idx;
 		const PIXEL_BGRA *px_f = future+idx;
-		if ( px_d->a == 255u && px_f->a == 255u ) {
+		if ( px_d->a == u255 && px_f->a == u255 ) {
 			px_d->b = std::midpoint(px_d->b, px_f->b);
 			px_d->g = std::midpoint(px_d->g, px_f->g);
 			px_d->r = std::midpoint(px_d->r, px_f->r);
@@ -657,7 +657,7 @@ private:
 	{
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
-		if ( px_d->a == 255u && px_t->a == 255u ) {
+		if ( px_d->a == u255 && px_t->a == u255 ) {
 			px_d->b = std::midpoint(px_d->b, px_t->b);
 			px_d->g = std::midpoint(px_d->g, px_t->g);
 			px_d->r = std::midpoint(px_d->r, px_t->r);

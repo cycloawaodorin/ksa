@@ -252,17 +252,10 @@ public:
 };
 static std::unique_ptr<ThreadPool> TP;
 
-struct PIXEL_BGRA {
-	alignas(1) unsigned char b;
-	alignas(1) unsigned char g;
-	alignas(1) unsigned char r;
-	alignas(1) unsigned char a;
-};
-
+constexpr static const unsigned char u0=0u, u255=255u;
 static unsigned char
 uc_cast(float x)
 {
-	constexpr static const unsigned char u0=0u, u255=255u;
 	if ( x < 0.0f || std::isnan(x) ) {
 		return u0;
 	} else if ( 255.0f < x ) {
@@ -271,7 +264,36 @@ uc_cast(float x)
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
 }
+static unsigned char
+uc_cast(std::uint32_t num, std::uint32_t den)
+{
+	if ( num == 0u ) {
+		return u0;
+	} else if ( 255u*den <= num ) {
+		return u255;
+	} else {
+		auto r = num % den;
+		if ( r*2u < den ) {
+			return static_cast<unsigned char>((num-r)/den);
+		} else if ( r*2u == den ) {
+			r = (num-r)/den;
+			if ( (r&1u) == 0u ) {
+				return static_cast<unsigned char>(r);
+			} else {
+				return static_cast<unsigned char>(r+1u);
+			}
+		} else {
+			return static_cast<unsigned char>((num-r)/den+1u);
+		}
+	}
+}
 
+struct PIXEL_BGRA {
+	alignas(1) unsigned char b;
+	alignas(1) unsigned char g;
+	alignas(1) unsigned char r;
+	alignas(1) unsigned char a;
+};
 struct FloatBGRAW {
 	float b, g, r, a, w;
 	FloatBGRAW() : b(0.0f), g(0.0f), r(0.0f), a(0.0f), w(0.0f) {}
@@ -294,30 +316,6 @@ struct FloatBGRAW {
 		d_px->a = uc_cast(a/w);
 	}
 };
-
-static unsigned char
-uc_cast(std::uint32_t num, std::uint32_t den)
-{
-	if ( num == 0u ) {
-		return static_cast<unsigned char>(0u);
-	} else if ( 255u*den <= num ) {
-		return static_cast<unsigned char>(255u);
-	} else {
-		auto r = num % den;
-		if ( r*2u < den ) {
-			return static_cast<unsigned char>((num-r)/den);
-		} else if ( r*2u == den ) {
-			r = (num-r)/den;
-			if ( (r&1u) == 0u ) {
-				return static_cast<unsigned char>(r);
-			} else {
-				return static_cast<unsigned char>(r+1u);
-			}
-		} else {
-			return static_cast<unsigned char>((num-r)/den+1u);
-		}
-	}
-}
 
 #include "ksa_ext.cpp"
 
