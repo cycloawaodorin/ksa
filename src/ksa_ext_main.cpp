@@ -1,4 +1,4 @@
-#include "lua/lua.hpp"
+#include <Windows.h>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -7,11 +7,26 @@
 #include <numeric>
 #include <cmath>
 #include <cstring>
-#include <utility>
 #include <exception>
 #include <stdexcept>
+#include <format>
+#include "module2.hpp"
+#include "version.hpp"
 
 namespace KSA {
+
+void
+debug_print(std::wstring_view wstr)
+{
+    OutputDebugStringW(wstr.data());
+}
+
+template<typename... Args>
+void
+debug_print(std::wformat_string<Args...> fmt, Args&&... args)
+{
+	OutputDebugStringW(std::format(fmt, std::forward<Args>(args)...).c_str());
+}
 
 class Rational {
 private:
@@ -31,8 +46,25 @@ public:
 			denominator = den/c;
 		}
 	}
-	Rational(std::intmax_t i) : numerator(i), denominator(1ll) {}
+	template<std::integral T>
+	Rational(T i) : numerator(static_cast<std::intmax_t>(i)), denominator(1ll) {}
 	Rational() : numerator(0ll), denominator(1ll) {}
+	Rational(float f)
+	{
+		int e;
+		f = std::frexp(f, &e);
+		f = std::ldexp(f, 24);
+		numerator = std::llrint(f);
+		if ( e < 24 ) {
+			denominator = 1ll<<(24-e);
+			auto c = std::gcd(numerator, denominator);
+			numerator /= c;
+			denominator /= c;
+		} else {
+			numerator <<= e-24;
+			denominator = 1ll;
+		}
+	}
 	std::intmax_t
 	get_numerator()
 	const {
@@ -252,12 +284,10 @@ public:
 static std::unique_ptr<ThreadPool> TP;
 
 constexpr static const float PI = 3.141592653589793f;
-struct PIXEL_BGRA {
-	alignas(1) unsigned char b;
-	alignas(1) unsigned char g;
-	alignas(1) unsigned char r;
-	alignas(1) unsigned char a;
+struct PIXEL_RGBA {
+	unsigned char r, g, b, a;
 };
+
 static unsigned char
 uc_cast(float x)
 {
@@ -270,44 +300,78 @@ uc_cast(float x)
 	}
 }
 static unsigned char
-uc_cast(std::uint32_t num, std::uint32_t den)
+uc_cast(std::int64_t num, std::int64_t den)
 {
-	if ( num == 0u ) {
+	if ( num <= 0ll ) {
 		return static_cast<unsigned char>(0u);
-	} else if ( 255u*den <= num ) {
+	} else if ( 255ll*den <= num ) {
 		return static_cast<unsigned char>(255u);
 	} else {
 		auto r = num % den;
-		if ( r*2u < den ) {
+		if ( r*2ll < den ) {
 			return static_cast<unsigned char>((num-r)/den);
-		} else if ( r*2u == den ) {
+		} else if ( r*2ll == den ) {
 			r = (num-r)/den;
-			if ( (r&1u) == 0u ) {
+			if ( (r&1ll) == 0ll ) {
 				return static_cast<unsigned char>(r);
 			} else {
-				return static_cast<unsigned char>(r+1u);
+				return static_cast<unsigned char>(r+1ll);
 			}
 		} else {
-			return static_cast<unsigned char>((num-r)/den+1u);
+			return static_cast<unsigned char>((num-r)/den+1ll);
 		}
 	}
+}
+
+static bool
+check_arg_num(SCRIPT_MODULE_PARAM* param, const int n)
+{
+	auto n_given=param->get_param_num();
+	if ( n != n_given ) {
+		static auto str = std::format("number of arguments must be {}, but {} given", n, n_given);
+		param->set_error(str.c_str());
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void
+exception_to_message(SCRIPT_MODULE_PARAM* param, std::exception &e)
+{
+	static auto str = std::format("exception '{}' has been thrown", e.what());
+	param->set_error(str.c_str());
 }
 
 #include "ksa_ext.cpp"
 
 };
 
-constexpr static const luaL_Reg ksa_ext[] = {
-#include "functions.c"
+static SCRIPT_MODULE_FUNCTION ksa_ext[] = {
+#include "functions.cpp"
 	{ nullptr, nullptr }
 };
 
-extern "C" {
-int
-luaopen_ksa_ext(lua_State *L)
+
+EXTERN_C SCRIPT_MODULE_TABLE *
+GetScriptModuleTable()
+{
+	static SCRIPT_MODULE_TABLE smt = {
+		L"KSA Extention Module Version " VERSION L" by KAZOON",
+		ksa_ext
+	};
+	return &smt;
+}
+
+EXTERN_C bool
+InitializePlugin(DWORD version)
 {
 	KSA::TP = std::make_unique<KSA::ThreadPool>();
-	luaL_register(L, "ksa_ext", ksa_ext);
-	return 1;
+	return true;
 }
+
+EXTERN_C void
+UninitializePlugin()
+{
+	KSA::TP.reset(nullptr);
 }

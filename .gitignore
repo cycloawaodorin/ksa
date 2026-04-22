@@ -2,5 +2,5 @@
 *.dll
 *.mod2
 *.o
-/src/functions.c
-/src2/functions.cpp
+/src/functions.cpp
+/ksa/
