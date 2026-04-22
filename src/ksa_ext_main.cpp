@@ -285,7 +285,6 @@ public:
 static std::unique_ptr<ThreadPool> TP;
 
 constexpr static const unsigned char u0=0u, u255=255u;
-
 static unsigned char
 uc_cast(float x)
 {
