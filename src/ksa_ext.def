@@ -1,4 +1,6 @@
 LIBRARY ksa_ext
 
 EXPORTS
-	luaopen_ksa_ext @1
+	GetScriptModuleTable @1
+	InitializePlugin @2
+	UninitializePlugin @3
