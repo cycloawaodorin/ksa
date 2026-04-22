@@ -3,6 +3,7 @@ class Trsgrad {
 	float
 	calc_grad(float x, float y)
 	const {
+		constexpr static const float pi = std::numbers::pi_v<float>;
 		float d = std::fma(sx, x-cx, sy*(y-cy));
 		if ( d < -0.5f ) {
 			return a0;
@@ -10,7 +11,7 @@ class Trsgrad {
 			return a1;
 		} else {
 			if ( type == 1 ) {
-				d = 0.5f*std::sin(PI*d);
+				d = 0.5f*std::sin(pi*d);
 			}
 			return std::fma(a_cef, d, a_int);
 		}
@@ -200,7 +201,7 @@ class ClipResize {
 private:
 	class XY {
 	private:
-		struct RANGE {
+		struct Range {
 			int start, end, skipped;
 			Rational center;
 		};
@@ -216,18 +217,20 @@ private:
 		static float
 		lanczos3(float x)
 		{
-			return sinc(PI*x)*sinc((PI/3.0f)*x);
+			constexpr static const float pi = std::numbers::pi_v<float>;
+			constexpr static const float pi_third = pi/3.0f;
+			return sinc(pi*x)*sinc(pi_third*x);
 		}
 	public:
 		int src_size, dest_size, clip_start, clip_end, var;
 		bool extend;
 		Rational reversed_scale, correction, weight_scale;
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
-		std::unique_ptr<RANGE[]> ranges;
+		std::unique_ptr<Range[]> ranges;
 		void
 		alloc_range()
 		{
-			ranges = std::make_unique<RANGE[]>(static_cast<std::size_t>(dest_size));
+			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
 		}
 		void
 		calc_range(int xy)
@@ -284,27 +287,17 @@ private:
 	{
 		const auto xrange = &(x.ranges[static_cast<std::size_t>(dx)]);
 		const auto yrange = &(y.ranges[static_cast<std::size_t>(dy)]);
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, w=0.0f;
+		FloatBGRAW bgraw;
 		const auto wxs = x.weights[ static_cast<std::size_t>( dx % (x.var) ) ].get();
 		const auto wys = y.weights[ static_cast<std::size_t>( dy % (y.var) ) ].get();
 		for ( auto sy=(yrange->start); sy<=(yrange->end); sy++ ) {
 			const auto wy = wys[sy-(yrange->start)+(yrange->skipped)];
 			for ( auto sx=(xrange->start); sx<=(xrange->end); sx++ ) {
 				const auto wxy = wy*wxs[sx-(xrange->start)+(xrange->skipped)];
-				const auto s_px = &src[sy*(x.src_size)+sx];
-				const auto wxya = wxy*s_px->a;
-				b = std::fmaf(s_px->b, wxya, b);
-				g = std::fmaf(s_px->g, wxya, g);
-				r = std::fmaf(s_px->r, wxya, r);
-				a += wxya;
-				w += wxy;
+				bgraw.fma(&src[sy*(x.src_size)+sx], wxy);
 			}
 		}
-		auto d_px = &dest[dy*(x.dest_size)+dx];
-		d_px->b = uc_cast(b/a);
-		d_px->g = uc_cast(g/a);
-		d_px->r = uc_cast(r/a);
-		d_px->a = uc_cast(a/w);
+		bgraw.put_pixel(&dest[dy*(x.dest_size)+dx]);
 	}
 public:
 	const PIXEL_BGRA *src;
@@ -373,30 +366,23 @@ private:
 	class XY {
 	public:
 		int src_size, dest_size, clip_start, clip_end, sc, dc;
-		struct RANGE {
-			int start, end;
-		};
-		void
-		calc_range(int xy, RANGE *range)
-		const {
-			range->start = xy*dc;
-			range->end = (xy+1)*dc;
-		}
 		void
 		calc_params()
 		{
-			const int ss = src_size-clip_start-clip_end;
-			const int c = std::gcd(dest_size, ss);
+			const auto ss = src_size-clip_start-clip_end;
+			const auto c = std::gcd(dest_size, ss);
 			sc = dest_size/c;
 			dc = ss/c;
 		}
 	};
+	struct Range {
+		int start, end;
+		Range(int i, int dc) : start(i*dc), end((i+1)*dc) {}
+	};
 	void
 	interpolate(int dx, int dy)
 	{
-		XY::RANGE xrange, yrange;
-		x.calc_range(dx, &xrange);
-		y.calc_range(dy, &yrange);
+		Range xrange(dx, x.dc), yrange(dy, y.dc);
 		std::uint32_t b=0u, g=0u, r=0u, a=0u;
 		for ( auto sy=(yrange.start); sy<(yrange.end); sy++ ) {
 			const auto xs = (sy/y.sc+y.clip_start)*(x.src_size) + x.clip_start;
@@ -507,22 +493,12 @@ private:
 		if ( h<end ) {
 			end = h;
 		}
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		FloatBGRAW bgraw;
 		for (auto sy=start+skip; sy<end; sy+=2) {
 			const auto wy = WEIGHTS[(sy-start)>>1];
-			const auto s_px = &dest[sy*w+x];
-			const auto wya = wy*s_px->a;
-			b = std::fmaf(s_px->b, wya, b);
-			g = std::fmaf(s_px->g, wya, g);
-			r = std::fmaf(s_px->r, wya, r);
-			a += wya;
-			ww += wy;
+			bgraw.fma(&dest[sy*w+x], wy);
 		}
-		auto d_px = &dest[y*w+x];
-		d_px->b = uc_cast(b/a);
-		d_px->g = uc_cast(g/a);
-		d_px->r = uc_cast(r/a);
-		d_px->a = uc_cast(a/ww);
+		bgraw.put_pixel(&dest[y*w+x]);
 	}
 public:
 	constexpr static const float WEIGHTS[] = {
@@ -639,22 +615,12 @@ private:
 		if ( h<end ) {
 			end = h;
 		}
-		float b=0.0f, g=0.0f, r=0.0f, a=0.0f, ww=0.0f;
+		FloatBGRAW bgraw;
 		for (auto sy=start+skip; sy<end; sy+=2) {
 			const auto wy = DiSpatial::WEIGHTS[(sy-start)>>1];
-			const auto s_px = &d[sy*w+x];
-			const auto wya = wy*s_px->a;
-			b = std::fmaf(s_px->b, wya, b);
-			g = std::fmaf(s_px->g, wya, g);
-			r = std::fmaf(s_px->r, wya, r);
-			a += wya;
-			ww += wy;
+			bgraw.fma(&d[sy*w+x], wy);
 		}
-		auto d_px = &d[y*w+x];
-		d_px->b = uc_cast(b/a);
-		d_px->g = uc_cast(g/a);
-		d_px->r = uc_cast(r/a);
-		d_px->a = uc_cast(a/ww);
+		bgraw.put_pixel(&d[y*w+x]);
 	}
 	void
 	interpolate_temporal(int x, int y)

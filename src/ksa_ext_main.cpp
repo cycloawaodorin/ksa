@@ -5,6 +5,7 @@
 #include <functional>
 #include <atomic>
 #include <numeric>
+#include <numbers>
 #include <cmath>
 #include <cstring>
 #include <utility>
@@ -251,24 +252,49 @@ public:
 };
 static std::unique_ptr<ThreadPool> TP;
 
-constexpr static const float PI = 3.141592653589793f;
 struct PIXEL_BGRA {
 	alignas(1) unsigned char b;
 	alignas(1) unsigned char g;
 	alignas(1) unsigned char r;
 	alignas(1) unsigned char a;
 };
+
 static unsigned char
 uc_cast(float x)
 {
+	constexpr static const unsigned char u0=0u, u255=255u;
 	if ( x < 0.0f || std::isnan(x) ) {
-		return static_cast<unsigned char>(0u);
+		return u0;
 	} else if ( 255.0f < x ) {
-		return static_cast<unsigned char>(255u);
+		return u255;
 	} else {
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
 }
+
+struct FloatBGRAW {
+	float b, g, r, a, w;
+	FloatBGRAW() : b(0.0f), g(0.0f), r(0.0f), a(0.0f), w(0.0f) {}
+	void
+	fma(const PIXEL_BGRA *s_px, float wxy)
+	{
+		const auto wxya = wxy*static_cast<float>(s_px->a);
+		b = std::fma(static_cast<float>(s_px->b), wxya, b);
+		g = std::fma(static_cast<float>(s_px->g), wxya, g);
+		r = std::fma(static_cast<float>(s_px->r), wxya, r);
+		a += wxya;
+		w += wxy;
+	}
+	void
+	put_pixel(PIXEL_BGRA *d_px)
+	const {
+		d_px->b = uc_cast(b/a);
+		d_px->g = uc_cast(g/a);
+		d_px->r = uc_cast(r/a);
+		d_px->a = uc_cast(a/w);
+	}
+};
+
 static unsigned char
 uc_cast(std::uint32_t num, std::uint32_t den)
 {
