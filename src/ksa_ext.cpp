@@ -92,7 +92,7 @@ private:
 	set_alpha(int x, int y, float z)
 	{
 		auto tag = &data[y*w+x];
-		tag->a = static_cast<unsigned char>(static_cast<float>(tag->a)*mag(z));
+		tag->a = uc_cast(static_cast<float>(tag->a)*mag(z));
 	}
 	void
 	corner()
@@ -164,21 +164,7 @@ public:
 	PIXEL_RGBA *data;
 	int w, h, t, b, l, r, type;
 	bool round;
-	void
-	invoke(int i)
-	{
-		if ( i == 0 ) {
-			corner();
-		} else if ( i == 1 ) {
-			top();
-		} else if ( i == 2 ) {
-			bottom();
-		} else if ( i == 3 ) {
-			left();
-		} else {
-			right();
-		}
-	}
+	const std::function<void()> fs[5] = { [this]{corner();}, [this]{top();}, [this]{bottom();}, [this]{left();}, [this]{right();} };
 };
 static void
 ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
@@ -199,7 +185,7 @@ ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 		it.type = param->get_param_int(i++);
 		
 		// 本処理
-		TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
+		TP->parallel_do([&it](int j){ it.fs[j](); }, 5);
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
@@ -568,11 +554,11 @@ private:
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == u255 && px_f->a == u255 ) {
+		if ( px_p->a == px_f->a ) {
 			px_d->r = std::midpoint(px_p->r, px_f->r);
 			px_d->g = std::midpoint(px_p->g, px_f->g);
 			px_d->b = std::midpoint(px_p->b, px_f->b);
-			px_d->a = u255;
+			px_d->a = px_p->a;
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -652,7 +638,7 @@ private:
 		const int idx = y*w+x;
 		auto px_d = &past_temp[idx];
 		const auto px_f = &future[idx];
-		if ( px_d->a == u255 && px_f->a == u255 ) {
+		if ( px_d->a == px_f->a ) {
 			px_d->r = std::midpoint(px_d->r, px_f->r);
 			px_d->g = std::midpoint(px_d->g, px_f->g);
 			px_d->b = std::midpoint(px_d->b, px_f->b);
@@ -681,7 +667,7 @@ private:
 	{
 		const int idx = y*w+x;
 		auto px_d=&dest[idx], px_t=&past_temp[idx];
-		if ( px_d->a == u255 && px_t->a == u255 ) {
+		if ( px_d->a == px_t->a ) {
 			px_d->r = std::midpoint(px_d->r, px_t->r);
 			px_d->g = std::midpoint(px_d->g, px_t->g);
 			px_d->b = std::midpoint(px_d->b, px_t->b);

@@ -9,7 +9,6 @@
 #include <cmath>
 #include <cstring>
 #include <exception>
-#include <stdexcept>
 #include <format>
 #include "module2.hpp"
 #include "version.hpp"
@@ -52,17 +51,18 @@ public:
 	Rational() : numerator(0ll), denominator(1ll) {}
 	Rational(float f)
 	{
+		constexpr static const int md=std::numeric_limits<float>::digits;
 		int e;
 		f = std::frexp(f, &e);
-		f = std::ldexp(f, 24);
+		f = std::ldexp(f, md);
 		numerator = std::llrint(f);
-		if ( e < 24 ) {
-			denominator = 1ll<<(24-e);
+		if ( e < md ) {
+			denominator = 1ll<<(md-e);
 			auto c = std::gcd(numerator, denominator);
 			numerator /= c;
 			denominator /= c;
 		} else {
-			numerator <<= e-24;
+			numerator <<= e-md;
 			denominator = 1ll;
 		}
 	}
