@@ -230,7 +230,7 @@ public:
 	{
 		threads = std::make_unique<Thread[]>(size);
 		for (auto i=0uz; i<size; i++) {
-			threads[i].thread = std::thread([this, i](){listen(&threads[i]);});
+			threads[i].thread = std::thread([this, i]{ listen(&threads[i]); });
 		}
 	}
 	~ThreadPool()
@@ -284,14 +284,14 @@ public:
 };
 static std::unique_ptr<ThreadPool> TP;
 
-constexpr static const unsigned char u0=0u, u255=255u;
+constexpr static const unsigned char uc0=0u, uc255=255u;
 static unsigned char
 uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
-		return u0;
+		return uc0;
 	} else if ( 255.0f < x ) {
-		return u255;
+		return uc255;
 	} else {
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
@@ -300,9 +300,9 @@ static unsigned char
 uc_cast(std::int64_t num, std::int64_t den)
 {
 	if ( num <= 0ll ) {
-		return u0;
+		return uc0;
 	} else if ( 255ll*den <= num ) {
-		return u255;
+		return uc255;
 	} else {
 		auto r = num % den;
 		if ( r*2ll < den ) {
