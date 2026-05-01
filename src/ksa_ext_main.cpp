@@ -15,7 +15,6 @@
 namespace KSA {
 
 class Rational {
-private:
 	std::intmax_t numerator, denominator;
 public:
 	Rational(std::intmax_t num, std::intmax_t den)
@@ -153,7 +152,6 @@ public:
 };
 
 class ThreadPool {
-private:
 	struct Thread {
 		std::thread thread;
 		std::mutex mx;
@@ -294,8 +292,9 @@ struct PIXEL_BGRA {
 	alignas(1) unsigned char r;
 	alignas(1) unsigned char a;
 };
-struct FloatBGRAW {
+class FloatBGRAW {
 	float b, g, r, a, w;
+public:
 	FloatBGRAW() : b(0.0f), g(0.0f), r(0.0f), a(0.0f), w(0.0f) {}
 	void
 	fma(const PIXEL_BGRA *s_px, float wxy)
