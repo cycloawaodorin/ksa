@@ -60,8 +60,12 @@ public:
 static int
 ksa_trsgrad(lua_State *L)
 {
-	Trsgrad it(L);
-	TP->parallel_do_batched([&it](int i){ it.invoke_calc_grad(i); }, it.get_h());
+	try {
+		Trsgrad it(L);
+		TP->parallel_do_batched([&it](int i){ it.invoke_calc_grad(i); }, it.get_h());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -183,8 +187,12 @@ public:
 static int
 ksa_edgegrad(lua_State *L)
 {
-	Edgegrad it(L);
-	TP->parallel_do([&it](int i){ it.fs[i](); }, 5);
+	try {
+		Edgegrad it(L);
+		TP->parallel_do([&it](int i){ it.fs[i](); }, 5);
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -353,17 +361,20 @@ public:
 static int
 ksa_clip_resize(lua_State *L)
 {
-	// 引数受け取り
-	ClipResize it(L);
-	
-	// パラメータ計算
-	TP->parallel_do([&it](int i){ it.invoke_calc_params(i); }, 2);
-	TP->parallel_do([&it](int i){ it.invoke_set_weights(i); }, it.get_var());
-	TP->parallel_do_batched([&it](int i){ it.invoke_calc_range(i); }, it.get_rsize());
-	
-	// 本処理
-	TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
-	
+	try {
+		// 引数受け取り
+		ClipResize it(L);
+		
+		// パラメータ計算
+		TP->parallel_do([&it](int i){ it.invoke_calc_params(i); }, 2);
+		TP->parallel_do([&it](int i){ it.invoke_set_weights(i); }, it.get_var());
+		TP->parallel_do_batched([&it](int i){ it.invoke_calc_range(i); }, it.get_rsize());
+		
+		// 本処理
+		TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -447,8 +458,12 @@ public:
 static int
 ksa_clip_resize_ave(lua_State *L)
 {
-	ClipResizeAve it(L);
-	TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
+	try {
+		ClipResizeAve it(L);
+		TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -486,8 +501,12 @@ public:
 static int
 ksa_deinterlace_nn(lua_State *L)
 {
-	DiNN it(L);
-	TP->parallel_do_batched([&it](int i){ it.doubling(i); }, it.get_hh());
+	try {
+		DiNN it(L);
+		TP->parallel_do_batched([&it](int i){ it.doubling(i); }, it.get_hh());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -551,8 +570,12 @@ public:
 static int
 ksa_deinterlace_spatial(lua_State *L)
 {
-	DiSpatial it(L);
-	TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
+	try {
+		DiSpatial it(L);
+		TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -614,8 +637,12 @@ public:
 static int
 ksa_deinterlace_temporal(lua_State *L)
 {
-	DiTemporal it(L);
-	TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
+	try {
+		DiTemporal it(L);
+		TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
 
@@ -746,12 +773,14 @@ public:
 static int
 ksa_deinterlace_ghost(lua_State *L)
 {
-	DiGhost it(L);
-	
-	const int w = it.get_w();
-	TP->parallel_do([&it](int i){ it.invoke_interpolate0(i); }, w);
-	TP->parallel_do([&it](int i){ it.invoke_interpolate1(i); }, w);
-	TP->parallel_do_batched([&it](int i){ it.invoke_mix(i); }, w);
-	
+	try {
+		DiGhost it(L);
+		const int w = it.get_w();
+		TP->parallel_do([&it](int i){ it.invoke_interpolate0(i); }, w);
+		TP->parallel_do([&it](int i){ it.invoke_interpolate1(i); }, w);
+		TP->parallel_do_batched([&it](int i){ it.invoke_mix(i); }, w);
+	} catch (std::exception &e) {
+		return luaL_error(L, e.what());
+	}
 	return 0;
 }
