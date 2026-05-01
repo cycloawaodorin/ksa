@@ -318,19 +318,33 @@ public:
 
 #include "ksa_ext.cpp"
 
-};
-
 constexpr static const luaL_Reg ksa_ext[] = {
 #include "functions.c"
 	{ nullptr, nullptr }
+};
+
+static int
+ksa_exit(lua_State *L)
+{
+	KSA::TP = nullptr;
+	return 0;
+}
+
 };
 
 extern "C" {
 int
 luaopen_ksa_ext(lua_State *L)
 {
+	void* _ = lua_newuserdata(L, 1);
+	lua_newtable(L);
+	lua_pushcfunction(L, KSA::ksa_exit);
+	lua_setfield(L, -2, "__gc");
+	lua_setmetatable(L, -2);
+	lua_setfield(L, LUA_REGISTRYINDEX, "KSA_EXT_FINALIZER");
+
 	KSA::TP = std::make_unique<KSA::ThreadPool>();
-	luaL_register(L, "ksa_ext", ksa_ext);
+	luaL_register(L, "ksa_ext", KSA::ksa_ext);
 	return 1;
 }
 }
