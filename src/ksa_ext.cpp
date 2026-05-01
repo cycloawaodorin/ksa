@@ -1,6 +1,8 @@
 // 透明グラデーション
 class Trsgrad {
-private:
+	PIXEL_RGBA *data;
+	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
+	int w, h, type;
 	float
 	calc_grad(float x, float y)
 	const {
@@ -18,14 +20,37 @@ private:
 		}
 	}
 public:
-	PIXEL_RGBA *data;
-	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
-	int w, h, type;
+	Trsgrad(SCRIPT_MODULE_PARAM *param)
+	{
+		// 引数受け取り
+		int i=0;
+		data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		cx = static_cast<float>(param->get_param_double(i++));
+		cy = static_cast<float>(param->get_param_double(i++));
+		const auto angle = static_cast<float>(param->get_param_double(i++));
+		const auto gwidth = static_cast<float>(param->get_param_double(i++));
+		a0 = static_cast<float>(param->get_param_double(i++));
+		a1 = static_cast<float>(param->get_param_double(i++));
+		type = param->get_param_int(i++);
+		
+		// パラメータ計算
+		sx = -std::sin(angle)/gwidth;
+		sy = std::cos(angle)/gwidth;
+		a_cef = a1 - a0;
+		a_int = (a0+a1)*0.5f;
+	}
+	int
+	get_h()
+	{
+		return h;
+	}
 	void
 	invoke_calc_grad(int y)
 	{
 		auto p = &data[y*w];
-		auto fy = static_cast<float>(y);
+		const auto fy = static_cast<float>(y);
 		for (auto x=0; x<w; x++) {
 			p->a = static_cast<unsigned char>( p->a * calc_grad(static_cast<float>(x), fy) );
 			p++;
@@ -37,28 +62,8 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 10) ) { return; }
 	try {
-		// 引数受け取り
-		int i=0;
-		Trsgrad it;
-		it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.cx = static_cast<float>(param->get_param_double(i++));
-		it.cy = static_cast<float>(param->get_param_double(i++));
-		const auto angle = static_cast<float>(param->get_param_double(i++));
-		const auto gwidth = static_cast<float>(param->get_param_double(i++));
-		it.a0 = static_cast<float>(param->get_param_double(i++));
-		it.a1 = static_cast<float>(param->get_param_double(i++));
-		it.type = param->get_param_int(i++);
-		
-		// パラメータ計算
-		it.sx = -std::sin(angle)/gwidth;
-		it.sy = std::cos(angle)/gwidth;
-		it.a_cef = (it.a1)-(it.a0);
-		it.a_int = ((it.a0)+(it.a1))*0.5f;
-		
-		// グラデーション反映
-		TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
+		Trsgrad it(param);
+		TP->parallel_do_batched([&it](int i){ it.invoke_calc_grad(i); }, it.get_h());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
@@ -66,7 +71,9 @@ ksa_trsgrad(SCRIPT_MODULE_PARAM *param)
 
 // 縁透明グラデーション
 class Edgegrad {
-private:
+	PIXEL_RGBA *data;
+	int w, h, t, b, l, r, type;
+	bool round;
 	float
 	mag(float z)
 	const {
@@ -161,31 +168,29 @@ private:
 		}
 	}
 public:
-	PIXEL_RGBA *data;
-	int w, h, t, b, l, r, type;
-	bool round;
-	const std::function<void()> fs[5] = { [this]{corner();}, [this]{top();}, [this]{bottom();}, [this]{left();}, [this]{right();} };
+	const std::function<void()> fs[5];
+	Edgegrad(SCRIPT_MODULE_PARAM *param) :
+		fs{ [this]{corner();}, [this]{top();}, [this]{bottom();}, [this]{left();}, [this]{right();} }
+	{
+		int i=0;
+		data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		t = param->get_param_int(i++);
+		b = param->get_param_int(i++);
+		l = param->get_param_int(i++);
+		r = param->get_param_int(i++);
+		round = param->get_param_boolean(i++);
+		type = param->get_param_int(i++);
+	}
 };
 static void
 ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 9) ) { return; }
 	try {
-		// 引数受け取り
-		int i=0;
-		Edgegrad it;
-		it.data = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.t = param->get_param_int(i++);
-		it.b = param->get_param_int(i++);
-		it.l = param->get_param_int(i++);
-		it.r = param->get_param_int(i++);
-		it.round = param->get_param_boolean(i++);
-		it.type = param->get_param_int(i++);
-		
-		// 本処理
-		TP->parallel_do([&it](int j){ it.fs[j](); }, 5);
+		Edgegrad it(param);
+		TP->parallel_do([&it](int i){ it.fs[i](); }, 5);
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
@@ -193,9 +198,7 @@ ksa_edgegrad(SCRIPT_MODULE_PARAM *param)
 
 // クリッピング & Lanczos3 拡大縮小
 class ClipResize {
-private:
 	class XY {
-	private:
 		struct Range {
 			int start, end, skipped;
 			Rational center;
@@ -223,11 +226,6 @@ private:
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		std::unique_ptr<Range[]> ranges;
 		void
-		alloc_range()
-		{
-			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
-		}
-		void
 		calc_range(int xy)
 		{
 			auto range = &ranges[static_cast<std::size_t>(xy)];
@@ -251,6 +249,7 @@ private:
 		void
 		calc_params()
 		{
+			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
 			reversed_scale = Rational(src_size-clip_start-clip_end, dest_size);
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
 			correction = (reversed_scale-1ll)/2ll + clip_start;
@@ -277,6 +276,9 @@ private:
 			}
 		}
 	};
+	const PIXEL_RGBA *src;
+	PIXEL_RGBA *dest;
+	XY x, y;
 	void
 	interpolate(int dx, int dy)
 	{
@@ -295,9 +297,29 @@ private:
 		rgbaw.put_pixel(&dest[dy*(x.dest_size)+dx]);
 	}
 public:
-	const PIXEL_RGBA *src;
-	PIXEL_RGBA *dest;
-	XY x, y;
+	ClipResize(SCRIPT_MODULE_PARAM *param)
+	{
+		int i=0;
+		src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		x.src_size = param->get_param_int(i++);
+		y.src_size = param->get_param_int(i++);
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		x.dest_size = param->get_param_int(i++);
+		y.dest_size = param->get_param_int(i++);
+		y.clip_start = param->get_param_int(i++);
+		y.clip_end = param->get_param_int(i++);
+		x.clip_start = param->get_param_int(i++);
+		x.clip_end = param->get_param_int(i++);
+	}
+	void
+	invoke_calc_params(int i)
+	{
+		if ( i == 0 ) {
+			x.calc_params();
+		} else {
+			y.calc_params();
+		}
+	}
 	void
 	invoke_set_weights(int i)
 	{
@@ -323,6 +345,21 @@ public:
 			interpolate(dx, dy);
 		}
 	}
+	int
+	get_var()
+	{
+		return x.var + y.var;
+	}
+	int
+	get_rsize()
+	{
+		return x.dest_size + y.dest_size;
+	}
+	int
+	get_dh()
+	{
+		return y.dest_size;
+	}
 };
 static void
 ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
@@ -330,29 +367,15 @@ ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 	if ( check_arg_num(param, 10) ) { return; }
 	try {
 		// 引数受け取り
-		ClipResize it;
-		int i=0;
-		it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.x.src_size = param->get_param_int(i++);
-		it.y.src_size = param->get_param_int(i++);
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.x.dest_size = param->get_param_int(i++);
-		it.x.alloc_range();
-		it.y.dest_size = param->get_param_int(i++);
-		it.y.alloc_range();
-		it.y.clip_start = param->get_param_int(i++);
-		it.y.clip_end = param->get_param_int(i++);
-		it.x.clip_start = param->get_param_int(i++);
-		it.x.clip_end = param->get_param_int(i++);
+		ClipResize it(param);
 		
 		// パラメータ計算
-		it.x.calc_params();
-		it.y.calc_params();
-		TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
-		TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
+		TP->parallel_do([&it](int i){ it.invoke_calc_params(i); }, 2);
+		TP->parallel_do([&it](int i){ it.invoke_set_weights(i); }, it.get_var());
+		TP->parallel_do_batched([&it](int i){ it.invoke_calc_range(i); }, it.get_rsize());
 
 		// 本処理
-		TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+		TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.get_dh());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
@@ -360,7 +383,6 @@ ksa_clip_resize(SCRIPT_MODULE_PARAM *param)
 
 // クリッピング & 画素平均法 拡大縮小
 class ClipResizeAve {
-private:
 	struct XY {
 		int src_size, dest_size, clip_start, clip_end, sc, dc;
 		void
@@ -376,6 +398,10 @@ private:
 		int start, end;
 		Range(int i, int dc) : start(i*dc), end((i+1)*dc) {}
 	};
+	const PIXEL_RGBA *src;
+	PIXEL_RGBA *dest;
+	XY x, y;
+	std::int64_t w;
 	void
 	interpolate(int dx, int dy)
 	{
@@ -399,10 +425,31 @@ private:
 		d_px->a = uc_cast(a, w);
 	}
 public:
-	const PIXEL_RGBA *src;
-	PIXEL_RGBA *dest;
-	XY x, y;
-	std::int64_t w;
+	ClipResizeAve(SCRIPT_MODULE_PARAM *param)
+	{
+		// 引数受け取り
+		int i=0;
+		src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		x.src_size = param->get_param_int(i++);
+		y.src_size = param->get_param_int(i++);
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		x.dest_size = param->get_param_int(i++);
+		y.dest_size = param->get_param_int(i++);
+		y.clip_start = param->get_param_int(i++);
+		y.clip_end = param->get_param_int(i++);
+		x.clip_start = param->get_param_int(i++);
+		x.clip_end = param->get_param_int(i++);
+		
+		// パラメータ計算
+		x.calc_params();
+		y.calc_params();
+		w = static_cast<std::int64_t>( (x.dc)*(y.dc) );
+	}
+	int
+	get_dh()
+	{
+		return y.dest_size;
+	}
 	void
 	invoke_interpolate(int dy)
 	{
@@ -416,43 +463,37 @@ ksa_clip_resize_ave(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 10) ) { return; }
 	try {
-		// 引数受け取り
-		ClipResizeAve it;
-		int i=0;
-		it.src = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.x.src_size = param->get_param_int(i++);
-		it.y.src_size = param->get_param_int(i++);
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.x.dest_size = param->get_param_int(i++);
-		it.y.dest_size = param->get_param_int(i++);
-		it.y.clip_start = param->get_param_int(i++);
-		it.y.clip_end = param->get_param_int(i++);
-		it.x.clip_start = param->get_param_int(i++);
-		it.x.clip_end = param->get_param_int(i++);
-		
-		// パラメータ計算
-		it.x.calc_params();
-		it.y.calc_params();
-		it.w = static_cast<std::int64_t>( (it.x.dc)*(it.y.dc) );
-		
-		// 本処理
-		TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+		ClipResizeAve it(param);
+		TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
 }
 
 class DiNN {
-public:
 	PIXEL_RGBA *dest;
 	int w, h;
 	bool top;
+public:
+	DiNN(SCRIPT_MODULE_PARAM *param)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		top = param->get_param_boolean(i++);
+	}
+	int
+	get_hh()
+	{
+		return h/2;
+	}
 	void
 	doubling(int i)
 	{
-		auto e=static_cast<std::size_t>(i*2*w);
-		auto o=static_cast<std::size_t>((i*2+1)*w);
-		auto len=static_cast<std::size_t>(w)*sizeof(PIXEL_RGBA);
+		const auto e=static_cast<std::size_t>(i*2*w);
+		const auto o=static_cast<std::size_t>((i*2+1)*w);
+		const auto len=static_cast<std::size_t>(w)*sizeof(PIXEL_RGBA);
 		if ( top ) {
 			std::memcpy(&dest[e], &dest[o], len);
 		} else {
@@ -465,23 +506,17 @@ ksa_deinterlace_nn(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 4) ) { return; }
 	try {
-		// 引数受け取り
-		DiNN it;
-		int i=0;
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.top = param->get_param_boolean(i++);
-		
-		// 本処理
-		TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
+		DiNN it(param);
+		TP->parallel_do_batched([&it](int i){ it.doubling(i); }, it.get_hh());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
 }
 
 class DiSpatial {
-private:
+	PIXEL_RGBA *dest;
+	int w, h;
+	bool top;
 	void
 	interpolate(int x, int y)
 	{
@@ -508,9 +543,19 @@ public:
 		0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
 		0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
 	};
-	PIXEL_RGBA *dest;
-	int w, h;
-	bool top;
+	DiSpatial(SCRIPT_MODULE_PARAM *param)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		top = param->get_param_boolean(i++);
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate(int x)
 	{
@@ -531,27 +576,22 @@ ksa_deinterlace_spatial(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 4) ) { return; }
 	try {
-		// 引数受け取り
-		DiSpatial it;
-		int i=0;
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.top = param->get_param_boolean(i++);
-		
-		// 本処理
-		TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
+		DiSpatial it(param);
+		TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
 }
 
 class DiTemporal {
-private:
+	PIXEL_RGBA *dest;
+	const PIXEL_RGBA *past, *future;
+	int w, h;
+	bool top;
 	void
 	interpolate(int x, int y)
 	{
-		int idx = y*w+x;
+		const auto idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
 		if ( px_p->a == px_f->a ) {
@@ -569,10 +609,21 @@ private:
 		}
 	}
 public:
-	PIXEL_RGBA *dest;
-	const PIXEL_RGBA *past, *future;
-	int w, h;
-	bool top;
+	DiTemporal(SCRIPT_MODULE_PARAM *param)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		top = param->get_param_boolean(i++);
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate(int x)
 	{
@@ -592,18 +643,8 @@ ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 6) ) { return; }
 	try {
-		// 引数受け取り
-		DiTemporal it;
-		int i=0;
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.past = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.top = param->get_param_boolean(i++);
-		
-		// 本処理
-		TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
+		DiTemporal it(param);
+		TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
@@ -611,6 +652,10 @@ ksa_deinterlace_temporal(SCRIPT_MODULE_PARAM *param)
 
 class DiGhost {
 private:
+	PIXEL_RGBA *dest, *past_temp;
+	const PIXEL_RGBA *future;
+	int w, h;
+	bool top;
 	void
 	interpolate_spatial(PIXEL_RGBA *d, bool t, int x, int y)
 	{
@@ -665,7 +710,7 @@ private:
 	void
 	mix(int x, int y)
 	{
-		const int idx = y*w+x;
+		const auto idx = y*w+x;
 		auto px_d=&dest[idx], px_t=&past_temp[idx];
 		if ( px_d->a == px_t->a ) {
 			px_d->r = std::midpoint(px_d->r, px_t->r);
@@ -681,10 +726,21 @@ private:
 		}
 	}
 public:
-	PIXEL_RGBA *dest, *past_temp;
-	const PIXEL_RGBA *future;
-	int w, h;
-	bool top;
+	DiGhost(SCRIPT_MODULE_PARAM *param)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
+		w = param->get_param_int(i++);
+		h = param->get_param_int(i++);
+		top = param->get_param_boolean(i++);
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate0(int x)
 	{
@@ -724,20 +780,11 @@ ksa_deinterlace_ghost(SCRIPT_MODULE_PARAM *param)
 {
 	if ( check_arg_num(param, 6) ) { return; }
 	try {
-		// 引数受け取り
-		DiGhost it;
-		int i=0;
-		it.dest = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.past_temp = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.future = static_cast<PIXEL_RGBA *>(param->get_param_data(i++));
-		it.w = param->get_param_int(i++);
-		it.h = param->get_param_int(i++);
-		it.top = param->get_param_boolean(i++);
-		
-		// 本処理
-		TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
-		TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
-		TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
+		DiGhost it(param);
+		const int w = it.get_w();
+		TP->parallel_do([&it](int i){ it.invoke_interpolate0(i); }, w);
+		TP->parallel_do([&it](int i){ it.invoke_interpolate1(i); }, w);
+		TP->parallel_do_batched([&it](int i){ it.invoke_mix(i); }, w);
 	} catch (std::exception &e) {
 		exception_to_message(param, e);
 	}
