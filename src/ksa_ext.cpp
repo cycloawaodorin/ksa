@@ -43,7 +43,7 @@ public:
 	}
 	int
 	get_h()
-	{
+	const {
 		return h;
 	}
 	void
@@ -312,15 +312,15 @@ public:
 		x.clip_end = lua_tointeger(L, ++i);
 	}
 	int get_var()
-	{
+	const {
 		return x.var + y.var;
 	}
 	int get_rsize()
-	{
+	const {
 		return x.dest_size + y.dest_size;
 	}
 	int get_dh()
-	{
+	const {
 		return y.dest_size;
 	}
 	void
@@ -444,7 +444,7 @@ public:
 	}
 	int
 	get_dh()
-	{
+	const {
 		return y.dest_size;
 	}
 	void
@@ -482,7 +482,7 @@ public:
 	}
 	int
 	get_hh()
-	{
+	const {
 		return h/2;
 	}
 	void
@@ -550,7 +550,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
@@ -617,7 +617,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
@@ -733,7 +733,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
