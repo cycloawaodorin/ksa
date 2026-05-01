@@ -43,7 +43,7 @@ public:
 	}
 	int
 	get_h()
-	{
+	const {
 		return h;
 	}
 	void
@@ -311,6 +311,21 @@ public:
 		x.clip_start = param->get_param_int(i++);
 		x.clip_end = param->get_param_int(i++);
 	}
+	int
+	get_var()
+	const {
+		return x.var + y.var;
+	}
+	int
+	get_rsize()
+	const {
+		return x.dest_size + y.dest_size;
+	}
+	int
+	get_dh()
+	const {
+		return y.dest_size;
+	}
 	void
 	invoke_calc_params(int i)
 	{
@@ -344,21 +359,6 @@ public:
 		for (int dx=0; dx<(x.dest_size); dx++) {
 			interpolate(dx, dy);
 		}
-	}
-	int
-	get_var()
-	{
-		return x.var + y.var;
-	}
-	int
-	get_rsize()
-	{
-		return x.dest_size + y.dest_size;
-	}
-	int
-	get_dh()
-	{
-		return y.dest_size;
 	}
 };
 static void
@@ -447,7 +447,7 @@ public:
 	}
 	int
 	get_dh()
-	{
+	const {
 		return y.dest_size;
 	}
 	void
@@ -485,7 +485,7 @@ public:
 	}
 	int
 	get_hh()
-	{
+	const {
 		return h/2;
 	}
 	void
@@ -553,7 +553,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
@@ -621,7 +621,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
@@ -738,7 +738,7 @@ public:
 	}
 	int
 	get_w()
-	{
+	const {
 		return w;
 	}
 	void
