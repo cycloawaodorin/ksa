@@ -1,5 +1,8 @@
 // 透明グラデーション
 class Trsgrad {
+	PIXEL_BGRA *data;
+	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
+	int w, h, type;
 	float
 	calc_grad(float x, float y)
 	const {
@@ -17,9 +20,32 @@ class Trsgrad {
 		}
 	}
 public:
-	PIXEL_BGRA *data;
-	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
-	int w, h, type;
+	Trsgrad(lua_State *L)
+	{
+		// 引数受け取り
+		int i=0;
+		data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		cx = static_cast<float>(lua_tonumber(L, ++i));
+		cy = static_cast<float>(lua_tonumber(L, ++i));
+		const auto angle = static_cast<float>(lua_tonumber(L, ++i));
+		const auto gwidth = static_cast<float>(lua_tonumber(L, ++i));
+		a0 = static_cast<float>(lua_tonumber(L, ++i));
+		a1 = static_cast<float>(lua_tonumber(L, ++i));
+		type = lua_tointeger(L, ++i);
+		
+		// パラメータ計算
+		sx = -std::sin(angle)/gwidth;
+		sy = std::cos(angle)/gwidth;
+		a_cef = a1 - a0;
+		a_int = (a0+a1)*0.5f;
+	}
+	int
+	get_h()
+	{
+		return h;
+	}
 	void
 	invoke_calc_grad(int y)
 	{
@@ -34,35 +60,16 @@ public:
 static int
 ksa_trsgrad(lua_State *L)
 {
-	// 引数受け取り
-	Trsgrad it;
-	int i=0;
-	it.data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.cx = static_cast<float>(lua_tonumber(L, ++i));
-	it.cy = static_cast<float>(lua_tonumber(L, ++i));
-	const auto angle = static_cast<float>(lua_tonumber(L, ++i));
-	const auto gwidth = static_cast<float>(lua_tonumber(L, ++i));
-	it.a0 = static_cast<float>(lua_tonumber(L, ++i));
-	it.a1 = static_cast<float>(lua_tonumber(L, ++i));
-	it.type = lua_tointeger(L, ++i);
-	
-	// パラメータ計算
-	it.sx = -std::sin(angle)/gwidth;
-	it.sy = std::cos(angle)/gwidth;
-	it.a_cef = (it.a1)-(it.a0);
-	it.a_int = ((it.a0)+(it.a1))*0.5f;
-	
-	// グラデーション反映
-	TP->parallel_do_batched([&it](int j){ it.invoke_calc_grad(j); }, it.h);
-	
+	Trsgrad it(L);
+	TP->parallel_do_batched([&it](int i){ it.invoke_calc_grad(i); }, it.get_h());
 	return 0;
 }
 
 // 縁透明グラデーション
 class Edgegrad {
-private:
+	PIXEL_BGRA *data;
+	int w, h, t, b, l, r, type;
+	bool round;
 	float
 	mag(float z)
 	const {
@@ -157,50 +164,33 @@ private:
 		}
 	}
 public:
-	PIXEL_BGRA *data;
-	int w, h, t, b, l, r, type;
-	bool round;
-	void
-	invoke(int i)
+	const std::function<void()> fs[5];
+	Edgegrad(lua_State *L) :
+		fs{ [this]{corner();}, [this]{top();}, [this]{bottom();}, [this]{left();}, [this]{right();} }
 	{
-		if ( i == 0 ) {
-			corner();
-		} else if ( i == 1 ) {
-			top();
-		} else if ( i == 2 ) {
-			bottom();
-		} else if ( i == 3 ) {
-			left();
-		} else {
-			right();
-		}
+		int i=0;
+		data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		t = lua_tointeger(L, ++i);
+		b = lua_tointeger(L, ++i);
+		l = lua_tointeger(L, ++i);
+		r = lua_tointeger(L, ++i);
+		round = ( lua_tointeger(L, ++i) != 0 );
+		type = lua_tointeger(L, ++i);
 	}
 };
 static int
 ksa_edgegrad(lua_State *L)
 {
-	int i=0;
-	Edgegrad it;
-	it.data = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.t = lua_tointeger(L, ++i);
-	it.b = lua_tointeger(L, ++i);
-	it.l = lua_tointeger(L, ++i);
-	it.r = lua_tointeger(L, ++i);
-	it.round = ( lua_tointeger(L, ++i) != 0 );
-	it.type = lua_tointeger(L, ++i);
-	
-	TP->parallel_do([&it](int j){ it.invoke(j); }, 5);
-	
+	Edgegrad it(L);
+	TP->parallel_do([&it](int i){ it.fs[i](); }, 5);
 	return 0;
 }
 
 // クリッピング & Lanczos3 拡大縮小
 class ClipResize {
-private:
 	class XY {
-	private:
 		struct Range {
 			int start, end, skipped;
 			Rational center;
@@ -228,11 +218,6 @@ private:
 		std::unique_ptr<std::unique_ptr<float[]>[]> weights;
 		std::unique_ptr<Range[]> ranges;
 		void
-		alloc_range()
-		{
-			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
-		}
-		void
 		calc_range(int xy)
 		{
 			auto range = &ranges[static_cast<std::size_t>(xy)];
@@ -256,6 +241,7 @@ private:
 		void
 		calc_params()
 		{
+			ranges = std::make_unique<Range[]>(static_cast<std::size_t>(dest_size));
 			reversed_scale = Rational(src_size-clip_start-clip_end, dest_size);
 			extend = ( reversed_scale.get_numerator() <= reversed_scale.get_denominator() );
 			correction = (reversed_scale-1ll)/2ll + clip_start;
@@ -282,6 +268,9 @@ private:
 			}
 		}
 	};
+	const PIXEL_BGRA *src;
+	PIXEL_BGRA *dest;
+	XY x, y;
 	void
 	interpolate(int dx, int dy)
 	{
@@ -300,9 +289,41 @@ private:
 		bgraw.put_pixel(&dest[dy*(x.dest_size)+dx]);
 	}
 public:
-	const PIXEL_BGRA *src;
-	PIXEL_BGRA *dest;
-	XY x, y;
+	ClipResize(lua_State *L)
+	{
+		int i=0;
+		src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		x.src_size = lua_tointeger(L, ++i);
+		y.src_size = lua_tointeger(L, ++i);
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		x.dest_size = lua_tointeger(L, ++i);
+		y.dest_size = lua_tointeger(L, ++i);
+		y.clip_start = lua_tointeger(L, ++i);
+		y.clip_end = lua_tointeger(L, ++i);
+		x.clip_start = lua_tointeger(L, ++i);
+		x.clip_end = lua_tointeger(L, ++i);
+	}
+	int get_var()
+	{
+		return x.var + y.var;
+	}
+	int get_rsize()
+	{
+		return x.dest_size + y.dest_size;
+	}
+	int get_dh()
+	{
+		return y.dest_size;
+	}
+	void
+	invoke_calc_params(int i)
+	{
+		if ( i == 0 ) {
+			x.calc_params();
+		} else {
+			y.calc_params();
+		}
+	}
 	void
 	invoke_set_weights(int i)
 	{
@@ -333,38 +354,22 @@ static int
 ksa_clip_resize(lua_State *L)
 {
 	// 引数受け取り
-	ClipResize it;
-	int i=0;
-	it.src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.x.src_size = lua_tointeger(L, ++i);
-	it.y.src_size = lua_tointeger(L, ++i);
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.x.dest_size = lua_tointeger(L, ++i);
-	it.x.alloc_range();
-	it.y.dest_size = lua_tointeger(L, ++i);
-	it.y.alloc_range();
-	it.y.clip_start = lua_tointeger(L, ++i);
-	it.y.clip_end = lua_tointeger(L, ++i);
-	it.x.clip_start = lua_tointeger(L, ++i);
-	it.x.clip_end = lua_tointeger(L, ++i);
+	ClipResize it(L);
 	
 	// パラメータ計算
-	it.x.calc_params();
-	it.y.calc_params();
-	TP->parallel_do([&it](int j){ it.invoke_set_weights(j); }, it.x.var + it.y.var);
-	TP->parallel_do_batched([&it](int j){ it.invoke_calc_range(j); }, it.x.dest_size + it.y.dest_size);
+	TP->parallel_do([&it](int i){ it.invoke_calc_params(i); }, 2);
+	TP->parallel_do([&it](int i){ it.invoke_set_weights(i); }, it.get_var());
+	TP->parallel_do_batched([&it](int i){ it.invoke_calc_range(i); }, it.get_rsize());
 	
 	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
+	TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
 	
 	return 0;
 }
 
 // クリッピング & 画素平均法 拡大縮小
 class ClipResizeAve {
-private:
-	class XY {
-	public:
+	struct XY {
 		int src_size, dest_size, clip_start, clip_end, sc, dc;
 		void
 		calc_params()
@@ -379,6 +384,10 @@ private:
 		int start, end;
 		Range(int i, int dc) : start(i*dc), end((i+1)*dc) {}
 	};
+	const PIXEL_BGRA *src;
+	PIXEL_BGRA *dest;
+	XY x, y;
+	std::uint32_t w;
 	void
 	interpolate(int dx, int dy)
 	{
@@ -402,10 +411,31 @@ private:
 		d_px->a = uc_cast(a, w);
 	}
 public:
-	const PIXEL_BGRA *src;
-	PIXEL_BGRA *dest;
-	XY x, y;
-	std::uint32_t w;
+	ClipResizeAve(lua_State *L)
+	{
+		// 引数受け取り
+		int i=0;
+		src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		x.src_size = lua_tointeger(L, ++i);
+		y.src_size = lua_tointeger(L, ++i);
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		x.dest_size = lua_tointeger(L, ++i);
+		y.dest_size = lua_tointeger(L, ++i);
+		y.clip_start = lua_tointeger(L, ++i);
+		y.clip_end = lua_tointeger(L, ++i);
+		x.clip_start = lua_tointeger(L, ++i);
+		x.clip_end = lua_tointeger(L, ++i);
+		
+		// パラメータ計算
+		x.calc_params();
+		y.calc_params();
+		w = static_cast<std::uint32_t>( (x.dc)*(y.dc) );
+	}
+	int
+	get_dh()
+	{
+		return y.dest_size;
+	}
 	void
 	invoke_interpolate(int dy)
 	{
@@ -417,42 +447,35 @@ public:
 static int
 ksa_clip_resize_ave(lua_State *L)
 {
-	// 引数受け取り
-	ClipResizeAve it;
-	int i=0;
-	it.src = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.x.src_size = lua_tointeger(L, ++i);
-	it.y.src_size = lua_tointeger(L, ++i);
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.x.dest_size = lua_tointeger(L, ++i);
-	it.y.dest_size = lua_tointeger(L, ++i);
-	it.y.clip_start = lua_tointeger(L, ++i);
-	it.y.clip_end = lua_tointeger(L, ++i);
-	it.x.clip_start = lua_tointeger(L, ++i);
-	it.x.clip_end = lua_tointeger(L, ++i);
-	
-	// パラメータ計算
-	it.x.calc_params();
-	it.y.calc_params();
-	it.w = static_cast<std::uint32_t>( (it.x.dc)*(it.y.dc) );
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.y.dest_size);
-	
+	ClipResizeAve it(L);
+	TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_dh());
 	return 0;
 }
 
 class DiNN {
-public:
 	PIXEL_BGRA *dest;
 	int w, h;
 	bool top;
+public:
+	DiNN(lua_State *L)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		top = ( lua_tointeger(L, ++i) != 0 );
+	}
+	int
+	get_hh()
+	{
+		return h/2;
+	}
 	void
 	doubling(int i)
 	{
-		auto e=static_cast<std::size_t>(i*2*w);
-		auto o=static_cast<std::size_t>((i*2+1)*w);
-		auto len=static_cast<std::size_t>(w)*sizeof(PIXEL_BGRA);
+		const auto e=static_cast<std::size_t>(i*2*w);
+		const auto o=static_cast<std::size_t>((i*2+1)*w);
+		const auto len=static_cast<std::size_t>(w)*sizeof(PIXEL_BGRA);
 		if ( top ) {
 			std::memcpy(&dest[e], &dest[o], len);
 		} else {
@@ -463,22 +486,15 @@ public:
 static int
 ksa_deinterlace_nn(lua_State *L)
 {
-	// 引数受け取り
-	DiNN it;
-	int i=0;
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.top = !( lua_tointeger(L, ++i) );
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.doubling(j); }, it.h/2);
-	
+	DiNN it(L);
+	TP->parallel_do_batched([&it](int i){ it.doubling(i); }, it.get_hh());
 	return 0;
 }
 
 class DiSpatial {
-private:
+	PIXEL_BGRA *dest;
+	int w, h;
+	bool top;
 	void
 	interpolate(int x, int y)
 	{
@@ -505,9 +521,19 @@ public:
 		0.024456521739130432f, -0.1358695652173913f, 0.6114130434782609f,
 		0.6114130434782609f, -0.1358695652173913f, 0.024456521739130432f
 	};
-	PIXEL_BGRA *dest;
-	int w, h;
-	bool top;
+	DiSpatial(lua_State *L)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		top = ( lua_tointeger(L, ++i) != 0 );
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate(int x)
 	{
@@ -525,33 +551,27 @@ public:
 static int
 ksa_deinterlace_spatial(lua_State *L)
 {
-	// 引数受け取り
-	DiSpatial it;
-	int i=0;
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.top = ( lua_tointeger(L, ++i) != 0 );
-	
-	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate(j); }, it.w);
-	
+	DiSpatial it(L);
+	TP->parallel_do([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
 	return 0;
 }
 
 class DiTemporal {
-private:
+	PIXEL_BGRA *dest;
+	const PIXEL_BGRA *past, *future;
+	int w, h;
+	bool top;
 	void
 	interpolate(int x, int y)
 	{
 		int idx = y*w+x;
 		auto px_d = &dest[idx];
 		const auto px_p = &past[idx], px_f = &future[idx];
-		if ( px_p->a == u255 && px_f->a == u255 ) {
+		if ( px_p->a == px_f->a ) {
 			px_d->b = std::midpoint(px_p->b, px_f->b);
 			px_d->g = std::midpoint(px_p->g, px_f->g);
 			px_d->r = std::midpoint(px_p->r, px_f->r);
-			px_d->a = u255;
+			px_d->a = px_p->a;
 		} else {
 			const float pa = px_p->a, fa = px_f->a;
 			const float pafa = pa+fa;
@@ -562,10 +582,21 @@ private:
 		}
 	}
 public:
-	PIXEL_BGRA *dest;
-	const PIXEL_BGRA *past, *future;
-	int w, h;
-	bool top;
+	DiTemporal(lua_State *L)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		top = ( lua_tointeger(L, ++i) != 0 );
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate(int x)
 	{
@@ -583,24 +614,16 @@ public:
 static int
 ksa_deinterlace_temporal(lua_State *L)
 {
-	// 引数受け取り
-	DiTemporal it;
-	int i=0;
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.past = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.top = ( lua_tointeger(L, ++i) != 0 );
-	
-	// 本処理
-	TP->parallel_do_batched([&it](int j){ it.invoke_interpolate(j); }, it.w);
-	
+	DiTemporal it(L);
+	TP->parallel_do_batched([&it](int i){ it.invoke_interpolate(i); }, it.get_w());
 	return 0;
 }
 
 class DiGhost {
-private:
+	PIXEL_BGRA *dest, *past_temp;
+	const PIXEL_BGRA *future;
+	int w, h;
+	bool top;
 	void
 	interpolate_spatial(PIXEL_BGRA *d, bool t, int x, int y)
 	{
@@ -628,7 +651,7 @@ private:
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d = past_temp+idx;
 		const PIXEL_BGRA *px_f = future+idx;
-		if ( px_d->a == u255 && px_f->a == u255 ) {
+		if ( px_d->a == px_f->a ) {
 			px_d->b = std::midpoint(px_d->b, px_f->b);
 			px_d->g = std::midpoint(px_d->g, px_f->g);
 			px_d->r = std::midpoint(px_d->r, px_f->r);
@@ -641,13 +664,13 @@ private:
 			px_d->a = std::midpoint(px_d->a, px_f->a);
 		}
 	}
-	constexpr void
+	void
 	interpolate0(int x, int y)
 	{
 		interpolate_spatial(dest, top, x, y);
 		interpolate_temporal(x, y);
 	}
-	constexpr void
+	void
 	interpolate1(int x, int y)
 	{
 		interpolate_spatial(past_temp, !top, x, y);
@@ -657,7 +680,7 @@ private:
 	{
 		const int idx = y*w+x;
 		PIXEL_BGRA *px_d=dest+idx, *px_t=past_temp+idx;
-		if ( px_d->a == u255 && px_t->a == u255 ) {
+		if ( px_d->a == px_t->a ) {
 			px_d->b = std::midpoint(px_d->b, px_t->b);
 			px_d->g = std::midpoint(px_d->g, px_t->g);
 			px_d->r = std::midpoint(px_d->r, px_t->r);
@@ -671,10 +694,21 @@ private:
 		}
 	}
 public:
-	PIXEL_BGRA *dest, *past_temp;
-	const PIXEL_BGRA *future;
-	int w, h;
-	bool top;
+	DiGhost(lua_State *L)
+	{
+		int i=0;
+		dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		past_temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
+		w = lua_tointeger(L, ++i);
+		h = lua_tointeger(L, ++i);
+		top = ( lua_tointeger(L, ++i) != 0 );
+	}
+	int
+	get_w()
+	{
+		return w;
+	}
 	void
 	invoke_interpolate0(int x)
 	{
@@ -712,20 +746,12 @@ public:
 static int
 ksa_deinterlace_ghost(lua_State *L)
 {
-	// 引数受け取り
-	DiGhost it;
-	int i=0;
-	it.dest = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.past_temp = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.future = static_cast<PIXEL_BGRA *>(lua_touserdata(L, ++i));
-	it.w = lua_tointeger(L, ++i);
-	it.h = lua_tointeger(L, ++i);
-	it.top = ( lua_tointeger(L, ++i) != 0 );
+	DiGhost it(L);
 	
-	// 本処理
-	TP->parallel_do([&it](int j){ it.invoke_interpolate0(j); }, it.w);
-	TP->parallel_do([&it](int j){ it.invoke_interpolate1(j); }, it.w);
-	TP->parallel_do_batched([&it](int j){ it.invoke_mix(j); }, it.w);
+	const int w = it.get_w();
+	TP->parallel_do([&it](int i){ it.invoke_interpolate0(i); }, w);
+	TP->parallel_do([&it](int i){ it.invoke_interpolate1(i); }, w);
+	TP->parallel_do_batched([&it](int i){ it.invoke_mix(i); }, w);
 	
 	return 0;
 }

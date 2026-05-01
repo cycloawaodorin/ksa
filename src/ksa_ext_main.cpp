@@ -252,14 +252,14 @@ public:
 };
 static std::unique_ptr<ThreadPool> TP;
 
-constexpr static const unsigned char u0=0u, u255=255u;
+constexpr static const unsigned char uc0=0u, uc255=255u;
 static unsigned char
 uc_cast(float x)
 {
 	if ( x < 0.0f || std::isnan(x) ) {
-		return u0;
+		return uc0;
 	} else if ( 255.0f < x ) {
-		return u255;
+		return uc255;
 	} else {
 		return static_cast<unsigned char>(std::nearbyint(x));
 	}
@@ -268,9 +268,9 @@ static unsigned char
 uc_cast(std::uint32_t num, std::uint32_t den)
 {
 	if ( num == 0u ) {
-		return u0;
+		return uc0;
 	} else if ( 255u*den <= num ) {
-		return u255;
+		return uc255;
 	} else {
 		auto r = num % den;
 		if ( r*2u < den ) {
