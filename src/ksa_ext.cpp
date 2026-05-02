@@ -1,7 +1,7 @@
 // 透明グラデーション
 class Trsgrad {
 	PIXEL_RGBA *data;
-	float sx, sy, cx, cy, a_cef, a_int, a0, a1;
+	float sx, sy, cx, cy, a0, a1;
 	int w, h, type;
 	float
 	calc_grad(float x, float y)
@@ -16,7 +16,7 @@ class Trsgrad {
 			if ( type == 1 ) {
 				d = 0.5f*std::sin(pi*d);
 			}
-			return std::fma(a_cef, d, a_int);
+			return std::lerp(a0, a1, d+0.5f);
 		}
 	}
 public:
@@ -38,8 +38,6 @@ public:
 		// パラメータ計算
 		sx = -std::sin(angle)/gwidth;
 		sy = std::cos(angle)/gwidth;
-		a_cef = a1 - a0;
-		a_int = (a0+a1)*0.5f;
 	}
 	int
 	get_h()
