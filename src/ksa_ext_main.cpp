@@ -29,7 +29,6 @@ debug_print(std::wformat_string<Args...> fmt, Args&&... args)
 }
 
 class Rational {
-private:
 	std::intmax_t numerator, denominator;
 public:
 	Rational(std::intmax_t num, std::intmax_t den)
@@ -180,12 +179,11 @@ public:
 	float
 	to_float()
 	const {
-		return( static_cast<float>(numerator) / static_cast<float>(denominator) );
+		return ( static_cast<float>(numerator) / static_cast<float>(denominator) );
 	}
 };
 
 class ThreadPool {
-private:
 	struct Thread {
 		std::thread thread;
 		std::mutex mx;
@@ -323,8 +321,9 @@ uc_cast(std::int64_t num, std::int64_t den)
 struct PIXEL_RGBA {
 	unsigned char r, g, b, a;
 };
-struct FloatRGBAW {
+class FloatRGBAW {
 	float r, g, b, a, w;
+public:
 	FloatRGBAW() : r(0.0f), g(0.0f), b(0.0f), a(0.0f), w(0.0f) {}
 	void
 	fma(const PIXEL_RGBA *s_px, float wxy)
