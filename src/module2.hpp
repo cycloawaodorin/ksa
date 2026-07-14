@@ -22,8 +22,29 @@
 // 
 //	設定関連機能初期化関数 (任意) ※config2.h
 //		void InitializeConfig(CONFIG_HANDLE* config)
+//
+//	キャッシュ関連機能初期化関数 ※cache2.h
+//		void InitializeCache(CACHE_HANDLE* cache)
 
 //----------------------------------------------------------------------------------
+
+// plugin2.hに定義されています
+struct EDIT_SECTION;
+struct META_METHOD_FUNCTION;
+
+// 引数の型種別
+enum class PARAM_TYPE : int {
+	NONE			= -1,
+	NIL				= 0,
+	BOOLEAN			= 1,
+	LIGHTUSERDATA	= 2,
+	NUMBER			= 3,
+	STRING			= 4,
+	TABLE			= 5,
+	FUNCTION		= 6,
+	USERDATA		= 7,
+	THREAD			= 8,
+};
 
 // スクリプトモジュール引数構造体
 struct SCRIPT_MODULE_PARAM {
@@ -186,6 +207,49 @@ struct SCRIPT_MODULE_PARAM {
 	// num			: 配列の要素数
 	void (*push_result_table_boolean)(LPCSTR* key, bool* value, int num);
 
+	//--------------------------------
+
+	// 編集セクション関数
+	// スクリプト処理中は参照系の関数が利用出来ます
+	EDIT_SECTION* edit;
+
+	//--------------------------------
+
+	// 関数を戻り値として追加する
+	// func			: 返却した関数の実行時に呼ばれるコールバック関数
+	// userdata		: 任意のユーザーデータのポインタ
+	void (*push_result_function)(void (*func)(SCRIPT_MODULE_PARAM*), void* userdata);
+
+	// 新しい関数に差し替えるので廃止します
+	void (*deprecated_push_result_meta_table)(void (*func_getter)(SCRIPT_MODULE_PARAM*), void (*func_setter)(SCRIPT_MODULE_PARAM*), void* userdata);
+
+	// 任意のユーザーデータのポインタ
+	// push_result_function(),push_result_meta_table()の引数の値が格納されます
+	void* userdata;
+
+	// メタテーブルの戻り値を追加する
+	// 任意のメタメソッドのコールバック関数を設定したメタテーブルを返却します
+	// meta_method_functions	: 登録するメタメソッドの一覧 (META_METHOD_FUNCTIONを列挙してメタメソッド名がnullの要素で終端したリストへのポインタ)
+	// userdata					: 任意のユーザーデータのポインタ
+	void (*push_result_meta_table)(META_METHOD_FUNCTION* meta_method_functions, void* userdata);
+
+	// 引数のメタテーブルのuserdataのポインタを取得する
+	// index					: 引数の位置(0～)
+	// meta_method_functions	: 対象のメタテーブルを識別する為のメタメソッドの一覧 ※同一アドレスの場合のみ取得出来ます
+	// 戻り値					: userdataのポインタ (取得出来ない場合はnullptr)
+	void* (*get_param_meta_table)(int index, META_METHOD_FUNCTION* meta_method_functions);
+
+	// 引数の型を取得します
+	// index					: 引数の位置(0～)
+	// 戻り値					: 引数の型
+	PARAM_TYPE (*get_param_type)(int index);
+
+};
+
+// メタメソッド定義構造体
+struct META_METHOD_FUNCTION {
+	LPCSTR method;						// メタメソッド名 ※luaのメタメソッドを指定出来ます
+	void (*func)(SCRIPT_MODULE_PARAM*);	// コールバック関数
 };
 
 //----------------------------------------------------------------------------------

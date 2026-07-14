@@ -369,15 +369,13 @@ exception_to_message(SCRIPT_MODULE_PARAM* param, std::exception &e)
 
 };
 
-static SCRIPT_MODULE_FUNCTION ksa_ext[] = {
-#include "functions.cpp"
-	{ nullptr, nullptr }
-};
-
-
 EXTERN_C SCRIPT_MODULE_TABLE *
 GetScriptModuleTable()
 {
+	static SCRIPT_MODULE_FUNCTION ksa_ext[] = {
+	#include "functions.cpp"
+		{ nullptr, nullptr }
+	};
 	static SCRIPT_MODULE_TABLE smt = {
 		L"KSA Extention Module Version " VERSION L" by KAZOON",
 		ksa_ext
